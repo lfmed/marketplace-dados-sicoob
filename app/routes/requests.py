@@ -19,10 +19,11 @@ def solicitar():
     ica_ids = request.form.getlist("camadas")
     justificativa = request.form.get("justificativa")
     id_grupo = request.form.get("id_grupo_acesso") or None
+    tipo_acesso = request.form.get("tipo_acesso") or "LEITURA"
     try:
         id_sol = request_service.criar_solicitacao(
             u, tipo_benef, id_iniciativa, id_ambiente, ica_ids,
-            justificativa=justificativa, id_grupo=id_grupo)
+            tipo_acesso=tipo_acesso, justificativa=justificativa, id_grupo=id_grupo)
         flash("Solicitação criada com sucesso.", "ok")
         return redirect(url_for("requests.detalhe", id_solicitacao=id_sol))
     except RegraNegocioError as e:

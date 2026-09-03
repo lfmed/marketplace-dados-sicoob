@@ -48,6 +48,16 @@ E_ERRO = "ERRO"
 B_NOMINAL = "NOMINAL"
 B_GRUPO = "GRUPO"
 
+# Tipos de acesso (RF-014) -> privilégios UC concedidos no schema
+TIPOS_ACESSO = {
+    "LEITURA": ["SELECT"],
+    "LEITURA_ESCRITA": ["SELECT", "MODIFY"],
+}
+TIPO_ACESSO_LABEL = {
+    "LEITURA": "Leitura (SELECT)",
+    "LEITURA_ESCRITA": "Leitura e escrita (SELECT + MODIFY)",
+}
+
 # Eventos de auditoria
 EV_SOLICITACAO_CRIADA = "SOLICITACAO_CRIADA"
 EV_AUTORIZADA = "AUTORIZACAO_HIERARQUICA_APROVADA"

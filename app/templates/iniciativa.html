@@ -53,6 +53,14 @@
     {% endif %}
 
     <div class="form-row">
+      <label>Tipo de acesso (RF-014)</label>
+      <select name="tipo_acesso">
+        <option value="LEITURA">Leitura (SELECT)</option>
+        <option value="LEITURA_ESCRITA">Leitura e escrita (SELECT + MODIFY)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
       <label>Ambiente</label>
       <select name="id_ambiente">
         {% set seen = [] %}

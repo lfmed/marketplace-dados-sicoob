@@ -11,7 +11,12 @@
       <td><b>{{ a.nome_iniciativa }}</b></td>
       <td>{{ a.origem }}</td>
       <td>{{ a.nome_ambiente }}</td>
-      <td>{{ m.badge_ac(a.cod_status_acesso) }}</td>
+      <td>{{ m.badge_ac(a.cod_status_acesso) }}
+        {% if a.cod_status_acesso == S.A_AGUARDANDO_EFETIVACAO %}
+          {% if a.sla_estourado %}<span class="badge b-err">SLA estourado</span>
+          {% else %}<span class="badge b-pend">~{{ a.sla_restante_min }} min</span>{% endif %}
+        {% endif %}
+      </td>
       <td>
         {% if a.cod_status_acesso in [S.A_EFETIVADO, S.A_ERRO_EFETIVACAO] %}
         <form method="post" action="{{ url_for('accesses.revogar', id_acesso=a.id_acesso) }}" style="display:flex;gap:8px">

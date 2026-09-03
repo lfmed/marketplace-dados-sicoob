@@ -8,11 +8,6 @@ from app.config import config
 from app import db
 from app import constants as C
 
-try:
-    from scripts.uc_sql import run_sql
-except Exception:  # fallback de import
-    run_sql = None
-
 
 def _principal(acesso):
     if acesso["cod_tipo_beneficiario"] == C.B_NOMINAL:
@@ -36,8 +31,15 @@ def _schemas_do_acesso(id_acesso):
         (id_acesso,))
 
 
-def montar_comandos(operacao, principal, schemas):
-    """Gera os comandos SQL de GRANT/REVOKE. `principal` entre crases."""
+def _privilegios(cod_tipo_acesso):
+    return C.TIPOS_ACESSO.get(cod_tipo_acesso or "LEITURA", ["SELECT"])
+
+
+def montar_comandos(operacao, principal, schemas, privilegios=None):
+    """Gera os comandos SQL de GRANT/REVOKE conforme o tipo de acesso (RF-014).
+    `principal` entre crases. `privilegios` = lista (ex.: ['SELECT','MODIFY'])."""
+    privilegios = privilegios or ["SELECT"]
+    priv_str = ", ".join(privilegios)
     p = f"`{principal}`"
     cmds = []
     catalogos = {s["nome_catalogo"] for s in schemas}
@@ -47,9 +49,9 @@ def montar_comandos(operacao, principal, schemas):
     for s in schemas:
         alvo = f'{s["nome_catalogo"]}.{s["nome_schema"]}'
         if operacao == C.OP_CONCESSAO:
-            cmds.append(f"GRANT USE SCHEMA, SELECT ON SCHEMA {alvo} TO {p}")
+            cmds.append(f"GRANT USE SCHEMA, {priv_str} ON SCHEMA {alvo} TO {p}")
         else:
-            cmds.append(f"REVOKE SELECT, USE SCHEMA ON SCHEMA {alvo} FROM {p}")
+            cmds.append(f"REVOKE {priv_str}, USE SCHEMA ON SCHEMA {alvo} FROM {p}")
     return cmds
 
 
@@ -61,17 +63,15 @@ def executar(operacao, acesso):
     schemas = _schemas_do_acesso(acesso["id_acesso"])
     if not schemas:
         return False, "", "nenhum schema UC associado ao acesso"
-    cmds = montar_comandos(operacao, principal, schemas)
+    cmds = montar_comandos(operacao, principal, schemas, _privilegios(acesso.get("cod_tipo_acesso")))
     comando_str = ";\n".join(cmds)
 
     if not config.GRANT_EXECUTE_REAL:
         return True, comando_str + "\n-- [SIMULADO: GRANT_EXECUTE_REAL=false]", None
-    if run_sql is None:
-        return False, comando_str, "helper de execução SQL indisponível"
 
     for cmd in cmds:
         try:
-            run_sql(cmd, warehouse_id=config.WAREHOUSE_ID)
+            db.run_uc_sql(cmd, warehouse_id=config.WAREHOUSE_ID)
         except Exception as e:
             msg = str(e)
             # REVOKE de algo já ausente não é erro fatal

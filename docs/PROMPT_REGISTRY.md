@@ -81,4 +81,20 @@ Backend + UI Flask/Jinja2 (tema Sicoob) construídos e validados:
   com a tela de referência.
 Falta (opcional, sob confirmação): deploy no Databricks Apps da workspace de dev.
 
+## PR-007 — Fechar parciais + deploy no Databricks Apps (2026-09-03)
+
+Usuário: "feche os parciais e implemente no databricks apps, e teste direto no databricks apps".
+- Parciais fechadas: **RF-014** (seletor de tipo de acesso LEITURA/LEITURA_ESCRITA →
+  privilégios SELECT/MODIFY no executor), **RF-024** (hierarquia recursiva: superiores
+  autorizam; diretor `u_roberto` adicionado ao seed), **RF-078/092/RN-030** (SLA de
+  efetivação exibido em Meus acessos / Acessos do owner), **RN-016** (acesso padrão do
+  owner exibido em Meus acessos).
+- Robustez: retry de conexão Lakebase (`app/db.py`) + `run_uc_sql` (executor usa o SP no
+  app, sem depender de perfil CLI).
+- Deploy: app `marketplace-dados` criado (SP `0507aae8-...`), permissões concedidas
+  (warehouse CAN_USE, UC USE CATALOG + MANAGE em 19 schemas, role Lakebase + grants),
+  código sincronizado e `databricks apps deploy` executado. URL:
+  https://marketplace-dados-7474646973581105.aws.databricksapps.com
+- Testes: 9/9 (regras + e2e com grant real). Script novo: `scripts/grant_app_sp.py`.
+
 <!-- Novos prompts/instruções relevantes são anexados abaixo com id incremental PR-NNN. -->

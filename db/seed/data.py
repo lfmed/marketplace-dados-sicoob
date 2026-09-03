@@ -16,14 +16,16 @@ USUARIOS = [
     ("u_carlos",   "Carlos Eduardo Souza","carlos.souza@sicoob.com.br",   "owner"),
     ("u_daniela",  "Daniela Prado",    "daniela.prado@sicoob.com.br",     "owner"),
     ("u_eduardo",  "Eduardo Nunes",    "eduardo.nunes@sicoob.com.br",     "owner"),
+    ("u_roberto",  "Roberto Diniz",    "roberto.diniz@sicoob.com.br",     "diretor"),
 ]
 
-# Hierarquia (usuario -> gestor imediato). RN-013/033.
+# Hierarquia (usuario -> gestor imediato). RN-013/033. Roberto é nível superior (RF-024).
 HIERARQUIA = [
     ("u_leandro", "u_mariana"),
     ("u_bruno",   "u_mariana"),
     ("u_ana",     "u_mariana"),
     ("u_carlos",  "u_mariana"),
+    ("u_mariana", "u_roberto"),
 ]
 
 # Ambientes

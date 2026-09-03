@@ -2,10 +2,26 @@
 técnica assíncrona, revogação. A aprovação (owner) e a efetivação são estados distintos
 (RN-018/029). Efetivação em até 30 min (RN-030) — aqui via worker de background."""
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from app import db
 from app import constants as C
+from app.config import config
 from app.services import audit_service, grant_executor
+
+
+def _anotar_sla(rows):
+    """Anota status de SLA de efetivação (RN-030/RF-078): min restantes e se estourou."""
+    agora = datetime.now(timezone.utc).replace(tzinfo=None)
+    for r in rows:
+        r["sla_restante_min"] = None
+        r["sla_estourado"] = False
+        if r.get("cod_status_acesso") == C.A_AGUARDANDO_EFETIVACAO and r.get("datahora_aprovacao"):
+            prazo = r["datahora_aprovacao"] + timedelta(minutes=config.EFETIVACAO_SLA_MIN)
+            delta = (prazo - agora).total_seconds() / 60.0
+            r["sla_restante_min"] = int(delta)
+            r["sla_estourado"] = delta < 0
+    return rows
 
 
 # ---------------- Criação do acesso (dentro da transação de aprovação do owner) ----------------
@@ -41,7 +57,7 @@ def criar_acesso(cur, solicitacao):
 # ---------------- Consultas ----------------
 def acessos_do_usuario(id_usuario):
     """Acessos nominais do usuário + acessos por grupo do qual é membro (RF-051/052, RN-025)."""
-    return db.query(
+    rows = db.query(
         """SELECT a.*, i.nome_iniciativa, amb.nome_ambiente, g.nome_grupo,
                   CASE WHEN a.cod_tipo_beneficiario='NOMINAL' THEN 'Nominal'
                        ELSE 'Grupo: ' || g.nome_grupo END AS origem,
@@ -61,11 +77,29 @@ def acessos_do_usuario(id_usuario):
                       WHERE id_entidade=%s AND bol_atual=true))
             ORDER BY a.datahora_aprovacao DESC""",
         (id_usuario, id_usuario))
+    return _anotar_sla(rows)
+
+
+def acesso_padrao_owner(id_usuario):
+    """RN-016: owners possuem acesso padrão às iniciativas sob sua responsabilidade
+    (não precisam solicitar). Lista essas iniciativas para exibição."""
+    return db.query(
+        """SELECT i.id_iniciativa_aisn, i.nome_iniciativa, d.nome_dominio, s.nome_subdominio,
+                  (SELECT string_agg(DISTINCT ica.nome_schema, ', ')
+                     FROM governanca.iniciativa_camada_ambiente ica
+                    WHERE ica.id_iniciativa_aisn=i.id_iniciativa_aisn AND ica.bol_atual=true) AS schemas
+             FROM governanca.iniciativa_proprietario p
+             JOIN governanca.iniciativa_aisn i ON i.id_iniciativa_aisn=p.id_iniciativa_aisn
+             JOIN governanca.subdominio_informacao s ON s.id_subdominio_informacao=i.id_subdominio_informacao
+             JOIN governanca.dominio_informacao d ON d.id_dominio_informacao=s.id_dominio_informacao
+            WHERE p.id_usuario_aisn=%s AND p.bol_atual=true
+            ORDER BY i.nome_iniciativa""",
+        (id_usuario,))
 
 
 def acessos_do_owner(id_owner):
     """Acessos concedidos no escopo do owner (RF-040/041)."""
-    return db.query(
+    rows = db.query(
         """SELECT a.*, i.nome_iniciativa, amb.nome_ambiente, g.nome_grupo,
                   ubenef.nome_completo AS nome_beneficiario,
                   CASE WHEN a.cod_tipo_beneficiario='NOMINAL' THEN ubenef.nome_completo
@@ -80,6 +114,7 @@ def acessos_do_owner(id_owner):
             WHERE p.id_usuario_aisn=%s AND a.cod_status_acesso <> 'REVOGADO'
             ORDER BY a.datahora_aprovacao DESC""",
         (id_owner,))
+    return _anotar_sla(rows)
 
 
 def _acesso(id_acesso):

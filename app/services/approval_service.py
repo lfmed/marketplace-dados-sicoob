@@ -10,8 +10,17 @@ from app.services.request_service import RegraNegocioError
 
 # ---------------- Fila do gestor (RF-027) ----------------
 def fila_gestor(id_gestor):
+    """Solicitações pendentes em que o usuário é gestor imediato OU superior do
+    solicitante na hierarquia (RF-024/RN-013)."""
     return db.query(
-        """SELECT s.*, i.nome_iniciativa, amb.nome_ambiente, g.nome_grupo,
+        """WITH RECURSIVE sub AS (
+             SELECT id_usuario_aisn FROM governanca.hierarquia_usuario
+              WHERE id_gestor_aisn=%s AND bol_atual=true
+             UNION
+             SELECT h.id_usuario_aisn FROM governanca.hierarquia_usuario h
+               JOIN sub ON h.id_gestor_aisn = sub.id_usuario_aisn
+              WHERE h.bol_atual=true)
+           SELECT s.*, i.nome_iniciativa, amb.nome_ambiente, g.nome_grupo,
                   usol.nome_completo AS nome_solicitante,
                   ubenef.nome_completo AS nome_beneficiario,
                   (SELECT string_agg(c.nome_camada, ', ' ORDER BY c.nome_camada)
@@ -26,9 +35,10 @@ def fila_gestor(id_gestor):
              JOIN governanca.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
              LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
              LEFT JOIN governanca.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
-            WHERE s.cod_status_solicitacao=%s AND s.id_usuario_autorizador_previsto=%s
+            WHERE s.cod_status_solicitacao=%s
+              AND (s.id_usuario_autorizador_previsto=%s OR s.id_usuario_solicitante IN (SELECT id_usuario_aisn FROM sub))
             ORDER BY s.datahora_criacao""",
-        (C.S_PENDENTE_AUTORIZACAO, id_gestor))
+        (id_gestor, C.S_PENDENTE_AUTORIZACAO, id_gestor))
 
 
 def decidir_autorizacao(id_solicitacao, id_gestor, aprovar, justificativa=None):
@@ -41,8 +51,10 @@ def decidir_autorizacao(id_solicitacao, id_gestor, aprovar, justificativa=None):
     # RN-014: solicitante não autoriza a própria solicitação
     if id_gestor == s["id_usuario_solicitante"]:
         raise RegraNegocioError("O solicitante não pode autorizar a própria solicitação (RN-014).")
-    if s["id_usuario_autorizador_previsto"] and s["id_usuario_autorizador_previsto"] != id_gestor:
-        raise RegraNegocioError("Você não é o autorizador hierárquico desta solicitação.")
+    # RN-013/RF-024: autoriza o gestor imediato OU um superior na hierarquia
+    from app.services.request_service import e_superior
+    if id_gestor != s["id_usuario_autorizador_previsto"] and not e_superior(id_gestor, s["id_usuario_solicitante"]):
+        raise RegraNegocioError("Você não é gestor imediato nem superior hierárquico do solicitante (RN-013).")
     resultado = C.R_APROVADA if aprovar else C.R_REPROVADA
     novo_status = C.S_AUTORIZADA if aprovar else C.S_REPROVADA_GESTOR
     with db.get_conn(autocommit=False) as conn:

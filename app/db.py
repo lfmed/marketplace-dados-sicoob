@@ -70,20 +70,36 @@ def _get_token() -> str:
         return cred.token
 
 
-def connect(autocommit: bool = True) -> psycopg.Connection:
+_user_cache = {"name": None}
+
+
+def _get_user():
+    if not _user_cache["name"]:
+        _user_cache["name"] = get_client().current_user.me().user_name
+    return _user_cache["name"]
+
+
+def connect(autocommit: bool = True, tentativas: int = 3) -> psycopg.Connection:
+    """Conecta ao Lakebase com retry (autoscaling pode acordar de scale-to-zero)."""
     host = _get_host()
-    user = get_client().current_user.me().user_name
-    conn = psycopg.connect(
-        host=host,
-        hostaddr=_resolve(host),
-        dbname=config.LAKEBASE_DBNAME,
-        user=user,
-        password=_get_token(),
-        sslmode="require",
-        autocommit=autocommit,
-        row_factory=dict_row,
-    )
-    return conn
+    ultimo_erro = None
+    for i in range(tentativas):
+        try:
+            return psycopg.connect(
+                host=host,
+                hostaddr=_resolve(host),
+                dbname=config.LAKEBASE_DBNAME,
+                user=_get_user(),
+                password=_get_token(),
+                sslmode="require",
+                autocommit=autocommit,
+                row_factory=dict_row,
+                connect_timeout=20,
+            )
+        except (psycopg.OperationalError, psycopg.errors.ConnectionTimeout) as e:
+            ultimo_erro = e
+            time.sleep(1.5 * (i + 1))
+    raise ultimo_erro
 
 
 @contextlib.contextmanager
@@ -121,3 +137,23 @@ def run_script(sql_script: str):
     with get_conn(autocommit=True) as conn:
         with conn.cursor() as cur:
             cur.execute(sql_script)
+
+
+def run_uc_sql(sql: str, warehouse_id: str = None):
+    """Executa SQL no Unity Catalog via Statement Execution API (usa o SP no app,
+    ou o perfil CLI localmente). Retorna (state, rows)."""
+    import time as _t
+    from databricks.sdk.service.sql import StatementState
+    wh = warehouse_id or config.WAREHOUSE_ID
+    w = get_client()
+    resp = w.statement_execution.execute_statement(warehouse_id=wh, statement=sql, wait_timeout="50s")
+    sid = resp.statement_id
+    while resp.status and resp.status.state in (StatementState.PENDING, StatementState.RUNNING):
+        _t.sleep(1)
+        resp = w.statement_execution.get_statement(sid)
+    state = resp.status.state if resp.status else None
+    if state == StatementState.FAILED:
+        err = resp.status.error
+        raise RuntimeError(f"UC SQL FAILED: {err.message if err else 'unknown'}")
+    rows = resp.result.data_array if (resp.result and resp.result.data_array) else []
+    return state, rows

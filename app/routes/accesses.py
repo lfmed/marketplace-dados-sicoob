@@ -12,7 +12,8 @@ def meus():
     u = identity.usuario_atual()
     uid = u.get("id_usuario_aisn") if u else None
     acessos = access_service.acessos_do_usuario(uid) if uid else []
-    return render_template("meus_acessos.html", acessos=acessos)
+    padrao_owner = access_service.acesso_padrao_owner(uid) if uid else []
+    return render_template("meus_acessos.html", acessos=acessos, padrao_owner=padrao_owner)
 
 
 @bp.route("/acessos-owner")

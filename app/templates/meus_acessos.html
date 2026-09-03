@@ -3,9 +3,24 @@
 {% block title %}Meus acessos{% endblock %}
 {% block content %}
 <div class="banner"><h2>🔑 Meus acessos</h2><p>Acessos concedidos ao seu usuário (nominal) e via grupos (RN-025)</p></div>
+
+{% if padrao_owner %}
 <div class="panel">
+  <h3>Acesso padrão como owner <span class="muted">(RN-016 — não precisa solicitar)</span></h3>
   <table>
-    <tr><th>Iniciativa</th><th>Origem</th><th>Camadas</th><th>Ambiente</th><th>Status</th><th>Efetivado em</th></tr>
+    <tr><th>Iniciativa</th><th>Domínio</th><th>Schemas</th></tr>
+    {% for o in padrao_owner %}
+    <tr><td><b>{{ o.nome_iniciativa }}</b></td><td>{{ o.nome_dominio }} · {{ o.nome_subdominio }}</td>
+        <td><span class="muted">{{ o.schemas or '—' }}</span></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<div class="panel">
+  <h3>Acessos concedidos</h3>
+  <table>
+    <tr><th>Iniciativa</th><th>Origem</th><th>Camadas</th><th>Ambiente</th><th>Status</th><th>SLA / efetivação</th></tr>
     {% for a in acessos %}
     <tr>
       <td><b>{{ a.nome_iniciativa }}</b></td>
@@ -13,7 +28,12 @@
       <td>{{ a.camadas }}</td>
       <td>{{ a.nome_ambiente }}</td>
       <td>{{ m.badge_ac(a.cod_status_acesso) }}</td>
-      <td class="muted">{{ a.datahora_efetivacao.strftime('%d/%m/%Y %H:%M') if a.datahora_efetivacao else '—' }}</td>
+      <td class="muted">
+        {% if a.cod_status_acesso == S.A_AGUARDANDO_EFETIVACAO %}
+          {% if a.sla_estourado %}<span class="badge b-err">SLA estourado</span>
+          {% else %}<span class="badge b-pend">efetiva em ~{{ a.sla_restante_min }} min</span>{% endif %}
+        {% else %}{{ a.datahora_efetivacao.strftime('%d/%m/%Y %H:%M') if a.datahora_efetivacao else '—' }}{% endif %}
+      </td>
     </tr>
     {% else %}
     <tr><td colspan="6" class="muted">Nenhum acesso ativo.</td></tr>

@@ -66,6 +66,31 @@ def test_rn017_owner_nao_aprova_proprio(conectado, usuario):
         limpar_solicitacao(id1)
 
 
+def test_rf014_tipo_acesso_privilegios(conectado):
+    # LEITURA_ESCRITA deve gerar MODIFY; LEITURA não.
+    from app.services import grant_executor
+    schemas = [{"nome_catalogo": "cat", "nome_schema": "sch"}]
+    cmds_rw = grant_executor.montar_comandos(C.OP_CONCESSAO, "x@y.com", schemas,
+                                             grant_executor._privilegios("LEITURA_ESCRITA"))
+    cmds_r = grant_executor.montar_comandos(C.OP_CONCESSAO, "x@y.com", schemas,
+                                            grant_executor._privilegios("LEITURA"))
+    assert any("MODIFY" in c for c in cmds_rw)
+    assert not any("MODIFY" in c for c in cmds_r)
+
+
+def test_rf024_superior_pode_autorizar(conectado, usuario):
+    # u_leandro -> gestor u_mariana -> superior u_roberto. Roberto (superior) pode autorizar.
+    id1 = request_service.criar_solicitacao(usuario("u_leandro"), C.B_NOMINAL, INI, AMB,
+                                            ["ica_ib_nav_silver"], justificativa="rf024")
+    try:
+        assert "u_roberto" in request_service.superiores("u_leandro")
+        approval_service.decidir_autorizacao(id1, "u_roberto", aprovar=True)
+        s = request_service.detalhe(id1)
+        assert s["cod_status_solicitacao"] == C.S_AUTORIZADA
+    finally:
+        limpar_solicitacao(id1)
+
+
 def test_cancelamento(conectado, usuario):
     id1 = request_service.criar_solicitacao(usuario("u_leandro"), C.B_NOMINAL, INI, AMB,
                                             ["ica_ib_nav_silver"], justificativa="x")

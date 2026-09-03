@@ -20,6 +20,25 @@ def gestor_imediato(id_usuario):
     )
 
 
+def superiores(id_usuario):
+    """Todos os gestores acima do usuário na hierarquia (imediato + níveis superiores) — RF-024/RN-013."""
+    rows = db.query(
+        """WITH RECURSIVE sup AS (
+             SELECT id_gestor_aisn FROM governanca.hierarquia_usuario
+              WHERE id_usuario_aisn=%s AND bol_atual=true
+             UNION
+             SELECT h.id_gestor_aisn FROM governanca.hierarquia_usuario h
+               JOIN sup ON h.id_usuario_aisn = sup.id_gestor_aisn
+              WHERE h.bol_atual=true)
+           SELECT id_gestor_aisn FROM sup""",
+        (id_usuario,))
+    return [r["id_gestor_aisn"] for r in rows]
+
+
+def e_superior(id_gestor, id_usuario):
+    return id_gestor in superiores(id_usuario)
+
+
 def grupos_do_usuario(id_usuario):
     """Grupos exploratórios em nome dos quais o usuário pode solicitar (RF-047, RN-007)."""
     return db.query(
