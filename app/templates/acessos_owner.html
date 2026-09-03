@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Acessos (owner){% endblock %}
+{% block content %}
+<div class="banner"><h2>🛡️ Acessos sob minha responsabilidade</h2><p>Acessos concedidos nas iniciativas das quais você é owner — revogue quando necessário</p></div>
+<div class="panel">
+  <table>
+    <tr><th>Iniciativa</th><th>Beneficiário</th><th>Ambiente</th><th>Status</th><th>Ações</th></tr>
+    {% for a in acessos %}
+    <tr>
+      <td><b>{{ a.nome_iniciativa }}</b></td>
+      <td>{{ a.origem }}</td>
+      <td>{{ a.nome_ambiente }}</td>
+      <td>{{ m.badge_ac(a.cod_status_acesso) }}</td>
+      <td>
+        {% if a.cod_status_acesso in [S.A_EFETIVADO, S.A_ERRO_EFETIVACAO] %}
+        <form method="post" action="{{ url_for('accesses.revogar', id_acesso=a.id_acesso) }}" style="display:flex;gap:8px">
+          <input type="text" name="justificativa" placeholder="Motivo" style="max-width:220px">
+          <button class="btn small danger" type="submit">Revogar</button>
+        </form>
+        {% endif %}
+        {% if a.cod_status_acesso == S.A_ERRO_EFETIVACAO %}
+        <form method="post" action="{{ url_for('accesses.reprocessar', id_acesso=a.id_acesso) }}">
+          <button class="btn small ghost" type="submit">Reprocessar</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">Nenhum acesso no seu escopo.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

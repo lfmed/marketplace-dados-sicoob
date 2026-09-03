@@ -1,0 +1,26 @@
+# Databricks Apps — configuração do Marketplace de Dados (Flask + Gunicorn).
+# Ajuste os valores de env para a workspace do cliente (ver docs/DEPLOY.md).
+command: ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
+
+env:
+  # Unity Catalog: catálogo é PARÂMETRO (o app só cria/concede em schemas).
+  - name: UC_CATALOG
+    value: "stable_classic_pg4xe1_catalog"
+  - name: UC_SCHEMA_PREFIX
+    value: "mkt"
+  # SQL Warehouse para executar GRANT/REVOKE/DDL no UC.
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "b8e52268d9828bdd"
+  # Lakebase (base operacional do App).
+  - name: LAKEBASE_ENDPOINT
+    value: "projects/marketplace-dados/branches/production/endpoints/primary"
+  - name: LAKEBASE_DBNAME
+    value: "databricks_postgres"
+  # Efetivação real de acessos (GRANT/REVOKE reais no UC).
+  - name: GRANT_EXECUTE_REAL
+    value: "true"
+  # Proxy "atuar como" (demo). Em produção com SSO real, defina "false".
+  - name: APP_ENABLE_PROXY
+    value: "true"
+  - name: FLASK_SECRET_KEY
+    valueFrom: "flask-secret"   # configure como app secret/resource na workspace

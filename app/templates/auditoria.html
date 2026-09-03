@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Auditoria{% endblock %}
+{% block content %}
+<div class="banner"><h2>🕵️ Auditoria</h2><p>Solicitações e acessos das iniciativas sob sua responsabilidade (RF-088)</p></div>
+<div class="panel">
+  <table>
+    <tr><th>Iniciativa</th><th>Solicitante</th><th>Beneficiário</th><th>Tipo</th><th>Status solicitação</th><th>Status acesso</th><th>Criada</th></tr>
+    {% for l in linhas %}
+    <tr>
+      <td><b>{{ l.nome_iniciativa }}</b><br><span class="muted">{{ l.nome_ambiente }}</span></td>
+      <td>{{ l.solicitante }}</td>
+      <td>{% if l.cod_tipo_beneficiario=='GRUPO' %}Grupo: {{ l.beneficiario_grupo }}{% else %}{{ l.beneficiario_nominal }}{% endif %}</td>
+      <td>{{ l.cod_tipo_beneficiario }}</td>
+      <td>{{ m.badge_sol(l.cod_status_solicitacao) }}</td>
+      <td>{{ m.badge_ac(l.cod_status_acesso) }}</td>
+      <td class="muted">{{ l.datahora_criacao.strftime('%d/%m %H:%M') if l.datahora_criacao }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">Nenhum registro no seu escopo.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

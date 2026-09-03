@@ -1,0 +1,11 @@
+{% macro badge_sol(status) %}
+  {% set cls = {'PENDENTE_AUTORIZACAO':'b-pend','AUTORIZADA':'b-info','APROVADA_OWNER':'b-ok',
+                'REPROVADA_GESTOR':'b-err','REPROVADA_OWNER':'b-err','CANCELADA':'b-grey'} %}
+  <span class="badge {{ cls.get(status,'b-grey') }}">{{ STATUS_SOL.get(status, status) }}</span>
+{% endmacro %}
+
+{% macro badge_ac(status) %}
+  {% set cls = {'APROVADO_AGUARDANDO_EFETIVACAO':'b-pend','EFETIVADO':'b-ok',
+                'ERRO_EFETIVACAO':'b-err','REVOGADO':'b-grey'} %}
+  {% if status %}<span class="badge {{ cls.get(status,'b-grey') }}">{{ STATUS_AC.get(status, status) }}</span>{% endif %}
+{% endmacro %}

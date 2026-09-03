@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Marketplace de Dados · Sicoob{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo"><span class="mark">◤</span> SICOOB</div>
+  <div class="brand"><h1>Marketplace de Dados</h1><small>protótipo</small></div>
+
+  {% if enable_proxy %}
+  <div class="proxy-label">ATUAR COMO (PROXY)</div>
+  <form method="post" action="{{ url_for('main.proxy') }}">
+    <select name="proxy_user_id" onchange="this.form.submit()">
+      {% for p in personas %}
+        <option value="{{ p.id_usuario_aisn }}" {% if usuario and usuario.id_usuario_aisn==p.id_usuario_aisn %}selected{% endif %}>
+          {{ p.nome_completo }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
+
+  {% if usuario %}
+  <div class="solic-box">
+    <b>{{ usuario.nome_completo }}</b><br>
+    <span class="muted" style="color:#bcdcd5">{{ usuario.desc_email }}</span>
+    {% if meus_grupos %}<br><br>Grupos: {{ meus_grupos|map(attribute='nome_grupo')|join(', ') }}{% endif %}
+  </div>
+  {% endif %}
+
+  <nav class="nav">
+    {% set ep = request.endpoint %}
+    <a href="{{ url_for('catalog.catalogo') }}" class="{{ 'active' if ep and ep.startswith('catalog') }}">📚 Catálogo</a>
+    <a href="{{ url_for('requests.minhas') }}" class="{{ 'active' if ep=='requests.minhas' }}">📝 Minhas solicitações</a>
+    {% if papeis.gestor or papeis.owner %}
+    <a href="{{ url_for('approvals.aprovacoes') }}" class="{{ 'active' if ep and ep.startswith('approvals') }}">✅ Aprovações</a>
+    {% endif %}
+    <a href="{{ url_for('accesses.meus') }}" class="{{ 'active' if ep=='accesses.meus' }}">🔑 Meus acessos</a>
+    {% if papeis.owner %}
+    <a href="{{ url_for('accesses.owner') }}" class="{{ 'active' if ep=='accesses.owner' }}">🛡️ Acessos (owner)</a>
+    <a href="{{ url_for('audit.auditoria') }}" class="{{ 'active' if ep=='audit.auditoria' }}">🕵️ Auditoria</a>
+    {% endif %}
+    <a href="{{ url_for('audit.resumo') }}" class="{{ 'active' if ep=='audit.resumo' }}">📊 Resumo do Domínio</a>
+  </nav>
+
+  <div class="spacer"></div>
+  <div class="foot">Sicoob · Gestão de Acesso a Dados<br>Unity Catalog + Lakebase</div>
+</aside>
+
+<main class="main">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+      <div class="flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

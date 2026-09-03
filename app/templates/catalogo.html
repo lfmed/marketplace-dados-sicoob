@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Catálogo · Marketplace de Dados{% endblock %}
+{% block content %}
+<div class="banner">
+  <h2>📚 Catálogo de Produtos de Dados</h2>
+  <p>Explore os produtos de dados e solicite acesso{% if usuario %} · você está como {{ usuario.nome_completo }}{% endif %}</p>
+</div>
+
+<form class="filters" method="get" action="{{ url_for('catalog.catalogo') }}">
+  <div class="field">
+    <label>Domínio</label>
+    <select name="dominio" onchange="this.form.submit()">
+      <option value="">Todos os domínios</option>
+      {% for d in dominios %}
+      <option value="{{ d.id_dominio_informacao }}" {% if f_dominio==d.id_dominio_informacao %}selected{% endif %}>{{ d.nome_dominio }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Subdomínio</label>
+    <select name="subdominio">
+      <option value="">Todos os subdomínios</option>
+      {% for s in subdominios %}
+      <option value="{{ s.id_subdominio_informacao }}" {% if f_subdominio==s.id_subdominio_informacao %}selected{% endif %}>{{ s.nome_subdominio }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Buscar</label>
+    <input type="text" name="busca" value="{{ f_busca or '' }}" placeholder="Nome do produto ou descrição">
+  </div>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+<div class="count">{{ total }} produto(s) de dados encontrado(s)</div>
+
+<div class="grid">
+  {% for i in iniciativas %}
+  <div class="card">
+    <div class="tags">
+      <span class="pill dom">{{ i.nome_dominio }}</span>
+      <span class="pill sub">{{ i.nome_subdominio }}</span>
+    </div>
+    <h3>{{ i.nome_iniciativa }}</h3>
+    <div class="desc">{{ i.desc_iniciativa }}</div>
+    <div class="meta">
+      <span>👤 {{ i.owners or '—' }}</span>
+      <span>🗂️ {{ i.num_tabelas }} tabela(s)</span>
+    </div>
+    <a class="btn block" href="{{ url_for('catalog.iniciativa', id_iniciativa=i.id_iniciativa_aisn) }}">Ver detalhes &amp; solicitar</a>
+  </div>
+  {% else %}
+  <p class="muted">Nenhuma iniciativa encontrada com os filtros atuais.</p>
+  {% endfor %}
+</div>
+{% endblock %}

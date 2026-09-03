@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Meus acessos{% endblock %}
+{% block content %}
+<div class="banner"><h2>🔑 Meus acessos</h2><p>Acessos concedidos ao seu usuário (nominal) e via grupos (RN-025)</p></div>
+<div class="panel">
+  <table>
+    <tr><th>Iniciativa</th><th>Origem</th><th>Camadas</th><th>Ambiente</th><th>Status</th><th>Efetivado em</th></tr>
+    {% for a in acessos %}
+    <tr>
+      <td><b>{{ a.nome_iniciativa }}</b></td>
+      <td>{{ a.origem }}</td>
+      <td>{{ a.camadas }}</td>
+      <td>{{ a.nome_ambiente }}</td>
+      <td>{{ m.badge_ac(a.cod_status_acesso) }}</td>
+      <td class="muted">{{ a.datahora_efetivacao.strftime('%d/%m/%Y %H:%M') if a.datahora_efetivacao else '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">Nenhum acesso ativo.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

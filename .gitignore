@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.local
+scripts/model.xml
+*.log
+.DS_Store
+.pytest_cache/
+.claude/
+/tmp/

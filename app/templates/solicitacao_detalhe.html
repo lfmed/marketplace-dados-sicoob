@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Solicitação · detalhe{% endblock %}
+{% block content %}
+<a class="muted" href="{{ url_for('requests.minhas') }}">&larr; Minhas solicitações</a>
+<div class="banner" style="margin-top:10px">
+  <h2>Solicitação · {{ s.nome_iniciativa }}</h2>
+  <p>{{ m.badge_sol(s.cod_status_solicitacao) }} {{ m.badge_ac(s.cod_status_acesso) }}</p>
+</div>
+
+<div class="panel">
+  <div class="kv">
+    <div class="k">Solicitante</div><div>{{ s.nome_solicitante }}</div>
+    <div class="k">Beneficiário</div><div>{% if s.cod_tipo_beneficiario=='GRUPO' %}Grupo: {{ s.nome_grupo }}{% else %}{{ s.nome_beneficiario }} (nominal){% endif %}</div>
+    <div class="k">Ambiente / tipo</div><div>{{ s.nome_ambiente }} · {{ s.cod_tipo_acesso }}</div>
+    <div class="k">Autorizador previsto</div><div>{{ s.nome_autorizador_previsto or '—' }}</div>
+    <div class="k">Camadas</div><div>{% for c in s.camadas %}<code class="schip">{{ c.nome_camada }} → {{ c.nome_catalogo }}.{{ c.nome_schema }}</code> {% endfor %}</div>
+    <div class="k">Justificativa</div><div>{{ s.desc_justificativa or '—' }}</div>
+  </div>
+  {% if s.cod_status_solicitacao in [S.S_PENDENTE_AUTORIZACAO, S.S_AUTORIZADA] %}
+  <form method="post" action="{{ url_for('requests.cancelar', id_solicitacao=s.id_solicitacao_acesso) }}" style="margin-top:14px">
+    <button class="btn danger small" type="submit">Cancelar solicitação</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h3>Histórico (auditoria)</h3>
+  <ul class="timeline">
+    {% for e in s.eventos %}
+    <li><b>{{ e.cod_evento.replace('_',' ')|title }}</b>
+        {% if e.nome_usuario_evento %}· {{ e.nome_usuario_evento }}{% endif %}
+        <br><small>{{ e.datahora_evento.strftime('%d/%m/%Y %H:%M') if e.datahora_evento }}{% if e.desc_detalhe %} — {{ e.desc_detalhe }}{% endif %}</small></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Aprovações{% endblock %}
+{% block content %}
+<div class="banner"><h2>✅ Aprovações</h2><p>Autorize (gestor) ou aprove (owner) as solicitações sob sua responsabilidade</p></div>
+
+{% macro fila(titulo, itens, endpoint, papel) %}
+<div class="panel">
+  <h3>{{ titulo }} <span class="muted">({{ itens|length }})</span></h3>
+  {% if not itens %}<p class="muted">Nenhuma solicitação pendente.</p>{% endif %}
+  {% for s in itens %}
+  <div style="border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px">
+    <b>{{ s.nome_iniciativa }}</b> · <span class="muted">{{ s.nome_ambiente }} · {{ s.cod_tipo_acesso }}</span>
+    <div style="margin:6px 0">
+      Solicitante: <b>{{ s.nome_solicitante }}</b> ·
+      Beneficiário: {% if s.cod_tipo_beneficiario=='GRUPO' %}Grupo {{ s.nome_grupo }}{% else %}{{ s.nome_beneficiario }}{% endif %} ·
+      Camadas: {{ s.camadas }}
+    </div>
+    {% if s.desc_justificativa %}<div class="muted">“{{ s.desc_justificativa }}”</div>{% endif %}
+    <form method="post" action="{{ url_for(endpoint, id_solicitacao=s.id_solicitacao_acesso) }}" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="text" name="justificativa" placeholder="Justificativa (obrigatória se reprovar)" style="max-width:360px">
+      <button class="btn small" name="acao" value="aprovar" type="submit">{{ 'Autorizar' if papel=='gestor' else 'Aprovar' }}</button>
+      <button class="btn small danger" name="acao" value="reprovar" type="submit">Reprovar</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% if papeis.gestor %}{{ fila('Fila do gestor (autorização hierárquica)', fila_gestor, 'approvals.decidir_gestor', 'gestor') }}{% endif %}
+{% if papeis.owner %}{{ fila('Fila do owner (aprovação do dado)', fila_owner, 'approvals.decidir_owner', 'owner') }}{% endif %}
+{% if not papeis.gestor and not papeis.owner %}
+<div class="panel"><p class="muted">Você não possui filas de aprovação. Use o seletor de proxy para atuar como gestor/owner.</p></div>
+{% endif %}
+{% endblock %}
