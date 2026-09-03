@@ -51,12 +51,28 @@ O que cada passo faz:
 > Governança** do cliente, em vez do schema sintético `marketplace_governanca`.
 
 ## 4. Permissões do app (service principal)
-Ao rodar no Databricks Apps, o app roda como um service principal (SP). Conceda:
+Ao rodar no Databricks Apps, o app roda como um service principal (SP). Conceda (script
+pronto: `python scripts/grant_app_sp.py <sp_client_id>`):
 ```sql
-GRANT USE CATALOG ON CATALOG <UC_CATALOG> TO `<app-sp>`;
-GRANT MANAGE ON SCHEMA <UC_CATALOG>.<cada schema mkt_*> TO `<app-sp>`;  -- p/ conceder/revogar
+-- MANAGE no CATÁLOGO é necessário para o SP conceder USE CATALOG aos beneficiários:
+GRANT USE CATALOG, MANAGE ON CATALOG <UC_CATALOG> TO `<app-sp-client-id>`;
+GRANT USE SCHEMA, MANAGE ON SCHEMA <UC_CATALOG>.<cada schema mkt_*> TO `<app-sp-client-id>`;
 ```
-E dê ao SP acesso ao warehouse (CAN_USE) e ao Lakebase (role Postgres correspondente).
+- **Warehouse:** `databricks warehouses set-permissions <wh> --json '{"access_control_list":[{"service_principal_name":"<sp-client-id>","permission_level":"CAN_USE"}]}'`.
+- **Lakebase:** crie um role Postgres para o SP e conceda privilégios:
+  ```
+  databricks postgres create-role projects/<proj>/branches/production --role-id app-marketplace \
+    --json '{"spec":{"identity_type":"SERVICE_PRINCIPAL","auth_method":"LAKEBASE_OAUTH_V1","postgres_role":"<sp-client-id>"}}'
+  ```
+  Depois (como owner do projeto), no Postgres:
+  ```sql
+  GRANT CONNECT ON DATABASE databricks_postgres TO "<sp-client-id>";
+  GRANT USAGE ON SCHEMA governanca TO "<sp-client-id>";
+  GRANT SELECT ON ALL TABLES IN SCHEMA governanca TO "<sp-client-id>";
+  GRANT USAGE ON SCHEMA gestao_acesso TO "<sp-client-id>";
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA gestao_acesso TO "<sp-client-id>";
+  ALTER DEFAULT PRIVILEGES IN SCHEMA gestao_acesso GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "<sp-client-id>";
+  ```
 
 ## 5. Publicar o app (Databricks Apps)
 ```bash

@@ -22,5 +22,8 @@ env:
   # Proxy "atuar como" (demo). Em produção com SSO real, defina "false".
   - name: APP_ENABLE_PROXY
     value: "true"
-  - name: FLASK_SECRET_KEY
-    valueFrom: "flask-secret"   # configure como app secret/resource na workspace
+  # FLASK_SECRET_KEY: em produção, crie um app secret e referencie via valueFrom.
+  # Ex.: databricks apps ... + resource secret; depois:
+  #   - name: FLASK_SECRET_KEY
+  #     valueFrom: "flask-secret"
+  # Sem isso, usa-se um default de desenvolvimento (app/config.py).

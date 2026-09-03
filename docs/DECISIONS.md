@@ -115,6 +115,18 @@ on Metastore"* — leandro é admin de workspace, não de metastore. Não é con
   `GRANT CREATE CATALOG ON METASTORE TO \`leandro.medeiros@databricks.com\`` e roda
   `python -m db.setup --mode native`.
 
+## D-012 — Deploy no Databricks Apps + permissões do SP — 2026-09-03
+App publicado: `marketplace-dados` → https://marketplace-dados-7474646973581105.aws.databricksapps.com
+(SP client id `0507aae8-d95f-474f-a35c-e7798ccb17ee`). Testado ponta a ponta NO APP
+publicado: solicitar → autorizar (gestor) → aprovar (owner) → **GRANT real executado pelo
+SP** (leandro obteve SELECT em `mkt_ib_trx_gold`), com trilha de auditoria completa.
+**Lição:** para o SP conceder `USE CATALOG` aos beneficiários ele precisa de **MANAGE no
+CATÁLOGO** (não basta MANAGE nos schemas) — o erro inicial `ERRO_EFETIVACAO` foi
+corretamente capturado nas tabelas de log e resolvido com `GRANT MANAGE ON CATALOG` +
+reprocessamento (RF-079/080). Permissões do SP codificadas em `scripts/grant_app_sp.py`
+e documentadas em `docs/DEPLOY.md`. Lakebase: role Postgres do SP via `create-role` +
+grants nos schemas.
+
 ## Infra provisionada (dev) — 2026-09-03
 - **Lakebase (autoscaling):** project `projects/marketplace-dados`, branch `production`,
   endpoint `.../endpoints/primary` (host `ep-lucky-dawn-d2x5bhqt.database.us-east-1.cloud.databricks.com`),

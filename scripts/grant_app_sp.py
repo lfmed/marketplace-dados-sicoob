@@ -15,8 +15,9 @@ from scripts.uc_sql import run_sql
 
 def main(sp):
     cat = config.UC_CATALOG
-    print(f"GRANT USE CATALOG ON {cat} TO {sp}")
-    run_sql(f"GRANT USE CATALOG ON CATALOG {cat} TO `{sp}`", warehouse_id=config.WAREHOUSE_ID)
+    # MANAGE no catálogo permite ao SP conceder USE CATALOG aos beneficiários (RF-067..069).
+    print(f"GRANT USE CATALOG, MANAGE ON CATALOG {cat} TO {sp}")
+    run_sql(f"GRANT USE CATALOG, MANAGE ON CATALOG {cat} TO `{sp}`", warehouse_id=config.WAREHOUSE_ID)
     schemas = [r["nome_schema"] for r in db.query(
         "SELECT DISTINCT nome_schema FROM governanca.iniciativa_camada_ambiente "
         "WHERE nome_schema IS NOT NULL ORDER BY nome_schema")]
