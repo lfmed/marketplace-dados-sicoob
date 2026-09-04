@@ -10,3 +10,4 @@ scripts/model.xml
 .pytest_cache/
 .claude/
 /tmp/
+demo/clips/

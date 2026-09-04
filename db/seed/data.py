@@ -17,6 +17,10 @@ USUARIOS = [
     ("u_daniela",  "Daniela Prado",    "daniela.prado@sicoob.com.br",     "owner"),
     ("u_eduardo",  "Eduardo Nunes",    "eduardo.nunes@sicoob.com.br",     "owner"),
     ("u_roberto",  "Roberto Diniz",    "roberto.diniz@sicoob.com.br",     "diretor"),
+    # Conta de serviço (service principal) consumidora de dados — desc_email = application_id
+    # do SP (é o principal usado no GRANT do Unity Catalog). Bom para demo de antes/depois
+    # pois um SP NÃO herda o ALL PRIVILEGES de "account users".
+    ("u_sp_consumidor", "Pipeline Consumidor (Service Principal)", "da972f88-2c2c-4c0a-80b6-09bd1ff4130e", "consumidor"),
 ]
 
 # Hierarquia (usuario -> gestor imediato). RN-013/033. Roberto é nível superior (RF-024).
@@ -26,6 +30,7 @@ HIERARQUIA = [
     ("u_ana",     "u_mariana"),
     ("u_carlos",  "u_mariana"),
     ("u_mariana", "u_roberto"),
+    ("u_sp_consumidor", "u_mariana"),
 ]
 
 # Ambientes
