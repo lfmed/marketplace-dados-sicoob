@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Marketplace de Dados · Sicoob{% endblock %}</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='favicon.jpg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <aside class="sidebar">
-  <div class="logo"><span class="mark">◤</span> SICOOB</div>
+  <img class="logo-img" src="{{ url_for('static', filename='logo-sicoob.png') }}" alt="Sicoob">
+
   <div class="brand"><h1>Marketplace de Dados</h1><small>protótipo</small></div>
 
   {% if enable_proxy %}
