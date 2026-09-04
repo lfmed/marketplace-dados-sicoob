@@ -1,5 +1,5 @@
 :root{
-  --sidebar:#0f3b38; --sidebar-2:#0b2d2b; --teal:#2fa890; --teal-d:#238b76;
+  --sidebar:#00353e; --sidebar-2:#00262c; --teal:#2fa890; --teal-d:#238b76;
   --ink:#14312e; --muted:#6b7d7a; --bg:#eef2f1; --card:#fff; --line:#e2e8e6;
   --dark-pill:#12302e; --amber:#c98a1a; --red:#c0392b; --green:#2e9e6b;
 }
@@ -16,20 +16,20 @@ a{color:inherit;text-decoration:none}
 .brand h1{font-size:19px;margin:0;font-weight:800}
 .brand small{color:#9fc4bd;text-transform:lowercase}
 .proxy-label{font-size:11px;letter-spacing:.12em;color:#9fc4bd;margin-top:6px}
-.sidebar select{width:100%;padding:9px;border-radius:8px;border:1px solid #2a5551;
-  background:#0c2f2c;color:#eafaf6;font-size:14px}
-.solic-box{border:1px solid #cfe14d55;border-radius:10px;padding:12px;background:#12433f;font-size:13px}
+.sidebar select{width:100%;padding:9px;border-radius:8px;border:1px solid #1c4d56;
+  background:#012c33;color:#eafaf6;font-size:14px}
+.solic-box{border:1px solid #cfe14d55;border-radius:10px;padding:12px;background:#0a4049;font-size:13px}
 .solic-box b{color:#dff5ee}
 .nav{display:flex;flex-direction:column;gap:4px;margin-top:6px}
 .nav a{padding:11px 14px;border-radius:9px;font-weight:600;font-size:15px;display:flex;gap:10px;align-items:center;color:#d7ede8}
-.nav a:hover{background:#12433f}
+.nav a:hover{background:#0a4049}
 .nav a.active{background:var(--teal);color:#04231f}
 .sidebar .spacer{flex:1}
 .sidebar .foot{font-size:11px;color:#7fa8a1}
 
 /* ---------- Main ---------- */
 .main{flex:1;padding:26px 30px;overflow:auto}
-.banner{background:linear-gradient(90deg,#0f3b38,var(--teal));color:#fff;border-radius:14px;
+.banner{background:linear-gradient(90deg,#00353e,var(--teal));color:#fff;border-radius:14px;
   padding:22px 26px;margin-bottom:20px}
 .banner h2{margin:0 0 4px;font-size:24px}
 .banner p{margin:0;color:#dff5ee;font-size:14px}
