@@ -148,7 +148,8 @@ def solicitar_revogacao(id_acesso, id_owner, justificativa=None):
                    (id_execucao_tecnica, id_acesso, cod_tipo_operacao, cod_status_execucao)
                    VALUES (%s,%s,%s,%s)""",
                 (uuid.uuid4().hex, id_acesso, C.OP_REVOGACAO, C.E_PENDENTE))
-            audit_service.registrar(cur, C.EV_REVOGACAO_SOLICITADA, id_acesso=id_acesso,
+            audit_service.registrar(cur, C.EV_REVOGACAO_SOLICITADA,
+                                    id_solicitacao=ac["id_solicitacao_acesso"], id_acesso=id_acesso,
                                     id_usuario=id_owner, detalhe=justificativa)
         conn.commit()
 
@@ -188,7 +189,9 @@ def processar_execucoes_pendentes(limite=20):
                             """UPDATE gestao_acesso.acesso
                                   SET cod_status_acesso=%s, datahora_efetivacao=now()
                                 WHERE id_acesso=%s""", (C.A_EFETIVADO, e["id_acesso"]))
-                        audit_service.registrar(cur, C.EV_EFETIVADO, id_acesso=e["id_acesso"],
+                        audit_service.registrar(cur, C.EV_EFETIVADO,
+                                                id_solicitacao=acesso["id_solicitacao_acesso"],
+                                                id_acesso=e["id_acesso"],
                                                 detalhe="concessão efetivada no Unity Catalog")
                     else:
                         cur.execute(
@@ -200,7 +203,9 @@ def processar_execucoes_pendentes(limite=20):
                                   SET cod_status_revogacao='EFETIVADA', datahora_conclusao=now()
                                 WHERE id_acesso=%s AND cod_status_revogacao='SOLICITADA'""",
                             (e["id_acesso"],))
-                        audit_service.registrar(cur, C.EV_REVOGADO, id_acesso=e["id_acesso"],
+                        audit_service.registrar(cur, C.EV_REVOGADO,
+                                                id_solicitacao=acesso["id_solicitacao_acesso"],
+                                                id_acesso=e["id_acesso"],
                                                 detalhe="revogação efetivada no Unity Catalog")
                 else:
                     cur.execute(
@@ -218,7 +223,9 @@ def processar_execucoes_pendentes(limite=20):
                             """UPDATE gestao_acesso.revogacao_acesso SET cod_status_revogacao='ERRO'
                                 WHERE id_acesso=%s AND cod_status_revogacao='SOLICITADA'""",
                             (e["id_acesso"],))
-                    audit_service.registrar(cur, C.EV_ERRO_EFETIVACAO, id_acesso=e["id_acesso"],
+                    audit_service.registrar(cur, C.EV_ERRO_EFETIVACAO,
+                                            id_solicitacao=acesso["id_solicitacao_acesso"],
+                                            id_acesso=e["id_acesso"],
                                             detalhe=(erro or "")[:1900])
                 processadas += 1
         conn.commit()

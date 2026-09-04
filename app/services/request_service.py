@@ -85,6 +85,11 @@ def _conflito_duplicidade(tipo_benef, id_benef_user, id_grupo, tipo_acesso, ica_
              WHERE s.cod_tipo_beneficiario=%s AND {benef_cond}
                AND s.cod_tipo_acesso=%s
                AND s.cod_status_solicitacao IN ('PENDENTE_AUTORIZACAO','AUTORIZADA','APROVADA_OWNER')
+               -- não bloqueia se o acesso gerado já foi revogado: o beneficiário
+               -- pode solicitar de novo aquela camada (RN-010 vale só p/ vigentes).
+               AND NOT EXISTS (SELECT 1 FROM gestao_acesso.acesso a
+                                WHERE a.id_solicitacao_acesso=s.id_solicitacao_acesso
+                                  AND a.cod_status_acesso='REVOGADO')
                AND sc.id_iniciativa_camada_ambiente = ANY(%s) LIMIT 1""",
         (tipo_benef, benef_val, tipo_acesso, ica_ids),
     )

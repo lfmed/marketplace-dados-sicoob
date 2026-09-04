@@ -15,13 +15,19 @@ def registrar(cur, cod_evento, id_solicitacao=None, id_acesso=None, id_usuario=N
 
 
 def eventos_da_solicitacao(id_solicitacao):
+    # Eventos ligados diretamente à solicitação OU ao acesso dela: os eventos de
+    # ciclo de vida do acesso (efetivação, revogação solicitada, revogado, erro)
+    # são gravados com id_acesso, então precisam ser resgatados pela ligação
+    # acesso→solicitação para aparecerem no histórico (RF-081..088).
     return db.query(
         """SELECT e.*, u.nome_completo AS nome_usuario_evento
              FROM gestao_acesso.evento_ciclo_vida e
              LEFT JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=e.id_usuario_evento
             WHERE e.id_solicitacao_acesso=%s
+               OR e.id_acesso IN (SELECT id_acesso FROM gestao_acesso.acesso
+                                   WHERE id_solicitacao_acesso=%s)
             ORDER BY e.datahora_evento""",
-        (id_solicitacao,),
+        (id_solicitacao, id_solicitacao),
     )
 
 

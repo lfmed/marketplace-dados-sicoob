@@ -5,7 +5,7 @@ import pytest
 
 from app import db, constants as C
 from app.config import config
-from app.services import request_service, approval_service, access_service
+from app.services import request_service, approval_service, access_service, audit_service
 from scripts.uc_sql import run_sql
 from tests.conftest import limpar_solicitacao
 
@@ -43,6 +43,13 @@ def test_fluxo_nominal_grant_real(conectado, usuario):
         ac = db.query_one("SELECT * FROM gestao_acesso.acesso WHERE id_acesso=%s", (ac["id_acesso"],))
         assert ac["cod_status_acesso"] == C.A_REVOGADO
         assert not _grant_presente(SCHEMA, EMAIL), "GRANT ainda presente após revogação"
+
+        # RF-081..088: o histórico da solicitação deve trazer os eventos do ciclo de vida
+        # do acesso (efetivação e revogação) com data — não só os da solicitação.
+        eventos = {e["cod_evento"]: e for e in audit_service.eventos_da_solicitacao(id_sol)}
+        assert C.EV_EFETIVADO in eventos, "evento de efetivação ausente no histórico"
+        assert C.EV_REVOGADO in eventos, "evento de revogação ausente no histórico"
+        assert eventos[C.EV_REVOGADO]["datahora_evento"] is not None, "data da revogação ausente"
     finally:
         # limpa grants residuais e dados
         cat = config.UC_CATALOG
