@@ -80,6 +80,12 @@ th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04
 .form-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-width:640px}
 .form-row label{font-weight:700;font-size:13px}
 textarea,input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px}
+/* selects do formulário de solicitação: mesmo padrão visual dos demais campos
+   (sem isso caem no estilo nativo do SO, destoando dos filtros/inputs) */
+.form-row select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;color:var(--ink);font-family:inherit;font-size:14px;
+  appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7d7a' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;cursor:pointer}
 .radio-row{display:flex;gap:18px;margin:6px 0 14px}
 .radio-row label{display:flex;gap:7px;align-items:center;font-weight:600}
 
