@@ -110,6 +110,34 @@ a:hover{text-decoration:underline}
 :where(code):not(.code code){font-family:var(--mono);font-size:.86em;
   background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:.08em .38em;color:var(--ink)}
 
+/* architecture diagram */
+.arch{overflow-x:auto;margin:20px 0 4px;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--surface);box-shadow:var(--shadow);padding:22px 20px}
+.arch svg{display:block;width:100%;min-width:760px;height:auto}
+.dg-box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.dg-box.src{fill:var(--surface-2)}
+.dg-box.hero{fill:var(--accent-soft);stroke:var(--accent-2);stroke-width:2}
+.dg-node{fill:var(--band);stroke:none}
+.dg-eyebrow{fill:var(--faint);font-family:var(--mono);font-size:10.5px;letter-spacing:.14em}
+.dg-title{fill:var(--ink);font-family:var(--display);font-weight:600;font-size:14px}
+.dg-sub{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.dg-node-t{fill:#eafaf6;font-family:var(--display);font-weight:600;font-size:12.5px}
+.dg-badge{fill:var(--accent-2)}
+.dg-badge-t{fill:#04231f;font-family:var(--mono);font-size:9.5px;letter-spacing:.02em;font-weight:600}
+.dg-line{stroke:var(--faint);stroke-width:1.6;fill:none}
+.dg-line.accent{stroke:var(--accent-2);stroke-width:2.2}
+.dg-arrowhead{fill:var(--faint)}
+.dg-arrowhead.accent{fill:var(--accent-2)}
+.dg-lbl{fill:var(--muted);font-family:var(--mono);font-size:10.5px;text-anchor:middle}
+.dg-lbl.on{fill:var(--accent);font-weight:600}
+
+.legend{list-style:none;counter-reset:l;padding:0;margin:18px 0 0;display:grid;gap:11px}
+.legend li{counter-increment:l;display:flex;gap:12px;align-items:baseline;font-size:.93rem;max-width:74ch}
+.legend li::before{content:counter(l);font-family:var(--mono);font-size:.78rem;font-weight:600;
+  color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-2);
+  min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;translate:0 2px}
+.legend b{font-weight:600}
+
 /* checklist table */
 .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);
   background:var(--surface);box-shadow:var(--shadow);margin:18px 0}
@@ -207,6 +235,7 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
   <nav class="toc" aria-label="Índice">
     <p class="toc-h">Nesta página</p>
     <ol>
+      <li><a href="#arch"><span class="k">◇</span> Arquitetura</a></li>
       <li><a href="#s0"><span class="k">0</span> O que provisionar</a></li>
       <li><a href="#s1"><span class="k">1</span> Pré-requisitos</a></li>
       <li><a href="#s2"><span class="k">2</span> Configuração</a></li>
@@ -220,6 +249,86 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
 
   <main class="doc">
     <p class="lead">O código do app e do banco é entregue pronto, idempotente e parametrizado — nenhum ID fica fixo fora de <code>app/config.py</code>. O trabalho do cliente é <strong>provisionar a infraestrutura</strong> e apontar o app para a governança e os schemas <strong>reais</strong>. Todos os comandos abaixo são reproduzíveis em qualquer workspace.</p>
+
+    <!-- Arquitetura -->
+    <section class="section" id="arch">
+      <div class="section-head">
+        <span class="section-num" style="font-size:1rem">◇</span>
+        <div><h2>Arquitetura em produção</h2>
+        <p class="sub">Três planos: a governança (origem, no cliente), o estado (Lakebase) e a efetivação (Unity Catalog).</p></div>
+      </div>
+      <p class="narrow">O app <strong>não é a fonte da verdade</strong> da governança — ele a <strong>consome</strong>. Os metadados (domínios, iniciativas, camadas, owners, hierarquia) são mantidos pelo <strong>Motor de Governança</strong> do cliente em tabelas Delta e replicados para o Lakebase por <em>synced tables</em>. O app lê essa governança, registra o ciclo de vida das solicitações no schema <code>gestao_acesso</code> e, na efetivação, executa <strong>GRANT/REVOKE reais</strong> nos schemas de dados do Unity Catalog — agindo como um <strong>Service Principal</strong>.</p>
+      <div class="arch">
+        <svg viewBox="0 0 1000 470" role="img" aria-label="Diagrama: fluxo de dados do Marketplace em produção — Motor de Governança para Lakebase, App e Unity Catalog">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" class="dg-arrowhead"/></marker>
+            <marker id="ahA" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" class="dg-arrowhead accent"/></marker>
+          </defs>
+
+          <!-- Usuário (SSO) -->
+          <rect class="dg-node" x="513" y="42" width="150" height="52" rx="10"/>
+          <text class="dg-node-t" x="588" y="66" text-anchor="middle">Usuário</text>
+          <text class="dg-node-t" x="588" y="84" text-anchor="middle" style="font-size:10px;fill:#a9d2c9;font-family:var(--mono);font-weight:400">login via SSO</text>
+          <line class="dg-line" x1="588" y1="94" x2="588" y2="168" marker-end="url(#ah)"/>
+          <text class="dg-lbl" x="612" y="136">SSO</text>
+
+          <!-- A · Motor de Governança -->
+          <text class="dg-eyebrow" x="12" y="160">ORIGEM · CLIENTE</text>
+          <rect class="dg-box src" x="12" y="170" width="176" height="120" rx="12"/>
+          <text class="dg-title" x="26" y="200">Motor de Governança</text>
+          <text class="dg-sub" x="26" y="223">Delta no Unity Catalog</text>
+          <text class="dg-sub" x="26" y="242">iniciativas · camadas</text>
+          <text class="dg-sub" x="26" y="261">owners · hierarquia</text>
+
+          <!-- B · Lakebase -->
+          <text class="dg-eyebrow" x="256" y="160">ESTADO · LAKEBASE</text>
+          <rect class="dg-box" x="256" y="170" width="176" height="120" rx="12"/>
+          <text class="dg-title" x="270" y="200">Lakebase · Postgres</text>
+          <text class="dg-sub" x="270" y="223">governanca (espelho)</text>
+          <text class="dg-sub" x="270" y="242">gestao_acesso (app)</text>
+          <text class="dg-sub" x="270" y="261">autoscaling · PG 17</text>
+
+          <!-- C · App (hero) -->
+          <text class="dg-eyebrow" x="500" y="160">APLICAÇÃO</text>
+          <rect class="dg-box hero" x="500" y="170" width="176" height="120" rx="12"/>
+          <text class="dg-title" x="514" y="199">Databricks Apps</text>
+          <text class="dg-sub" x="514" y="221">catálogo · solicitações</text>
+          <text class="dg-sub" x="514" y="239">aprovações · worker</text>
+          <rect class="dg-badge" x="514" y="252" width="148" height="22" rx="6"/>
+          <text class="dg-badge-t" x="588" y="267" text-anchor="middle">roda como Service Principal</text>
+
+          <!-- D · Unity Catalog -->
+          <text class="dg-eyebrow" x="744" y="160">EFETIVAÇÃO</text>
+          <rect class="dg-box" x="744" y="170" width="176" height="120" rx="12"/>
+          <text class="dg-title" x="758" y="200">Unity Catalog</text>
+          <text class="dg-sub" x="758" y="223">GRANT / REVOKE</text>
+          <text class="dg-sub" x="758" y="242">nos schemas reais</text>
+          <text class="dg-sub" x="758" y="261">dos dados</text>
+
+          <!-- Beneficiário -->
+          <rect class="dg-node" x="757" y="356" width="150" height="52" rx="10"/>
+          <text class="dg-node-t" x="832" y="380" text-anchor="middle">Beneficiário</text>
+          <text class="dg-node-t" x="832" y="398" text-anchor="middle" style="font-size:10px;fill:#a9d2c9;font-family:var(--mono);font-weight:400">usuário · grupo · SP</text>
+          <line class="dg-line accent" x1="832" y1="290" x2="832" y2="356" marker-end="url(#ahA)"/>
+          <text class="dg-lbl on" x="860" y="326">acesso</text>
+
+          <!-- connectors -->
+          <line class="dg-line" x1="188" y1="230" x2="252" y2="230" marker-end="url(#ah)"/>
+          <text class="dg-lbl" x="220" y="216">sync</text>
+          <line class="dg-line" x1="432" y1="230" x2="496" y2="230" marker-end="url(#ah)"/>
+          <text class="dg-lbl" x="464" y="216">lê / grava</text>
+          <line class="dg-line accent" x1="676" y1="230" x2="740" y2="230" marker-end="url(#ahA)"/>
+          <text class="dg-lbl on" x="708" y="216">grant</text>
+        </svg>
+      </div>
+      <ol class="legend">
+        <li><b>Motor de Governança</b> mantém os metadados (domínios, iniciativas, camadas, owners, hierarquia) em tabelas Delta no Unity Catalog — fonte da verdade, fora do app.</li>
+        <li><b>Synced tables</b> replicam essas tabelas Delta para o schema <code>governanca</code> no Lakebase (espelho de leitura, atualizado continuamente).</li>
+        <li>O <b>usuário entra via SSO</b>; o app lê a governança do Lakebase e registra cada solicitação, autorização e aprovação no schema transacional <code>gestao_acesso</code>.</li>
+        <li>Na aprovação final do owner, o <b>worker de efetivação</b> executa <code>GRANT</code>/<code>REVOKE</code> no schema real do Unity Catalog — agindo como o <b>Service Principal</b> do app.</li>
+        <li>O <b>beneficiário</b> (usuário nominal, grupo exploratório ou service principal) passa a ter acesso ao schema, de forma auditável (RF-081..088).</li>
+      </ol>
+    </section>
 
     <!-- 0 -->
     <section class="section" id="s0">
@@ -261,19 +370,20 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
         <div><h2>Pré-requisitos</h2>
         <p class="sub">CLI autenticado e o projeto Lakebase disponível.</p></div>
       </div>
-      <p class="narrow">Autentique o Databricks CLI na workspace-alvo e garanta o projeto Lakebase. Um SQL Warehouse serverless precisa estar ativo (item 2 do checklist).</p>
+      <p class="narrow">Duas coisas precisam existir antes de qualquer outra: o <strong>Databricks CLI autenticado</strong> na workspace de produção e um <strong>projeto Lakebase</strong>. O CLI é a ferramenta que provisiona o banco, concede as permissões e publica o app; a autenticação usa OAuth e fica salva no perfil local. O projeto Lakebase é o banco Postgres <em>autoscaling</em> do app — ele escala a compute conforme a carga e pode chegar a zero quando ocioso, então não há custo de servidor parado.</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
-<pre><code><span class="c"># CLI autenticado na workspace de produção do cliente</span>
+<pre><code><span class="c"># 1. Autentica o CLI na workspace de produção do cliente (abre o browser p/ OAuth)</span>
 databricks auth login --host https://&lt;workspace&gt;.cloud.databricks.com
 
-<span class="c"># Projeto Lakebase (autoscaling, PG 17) — se ainda não existir</span>
+<span class="c"># 2. Cria o projeto Lakebase (autoscaling, PG 17) — pule se já existir</span>
 databricks postgres create-project marketplace-dados \
   --json '{"spec":{"display_name":"Marketplace Dados Sicoob","pg_version":"17"}}'</code></pre>
       </div>
+      <p class="narrow">A criação do projeto é uma operação de longa duração: o comando retorna quando o projeto, a branch <code>production</code> e o endpoint <code>primary</code> estão prontos. Confirme com <code>databricks postgres list-projects</code>. O <strong>SQL Warehouse serverless</strong> (item 2 do checklist) também precisa estar ativo — é ele que executa o DDL do banco e os comandos <code>GRANT</code>/<code>REVOKE</code>.</p>
       <div class="callout warn">
         <span class="ico">requer</span>
-        <p class="ct">Para as <b>synced tables nativas</b> (modo <code>native</code>, passo 3), o executor precisa de <b><code>CREATE CATALOG</code> no metastore</b>. Para conceder/revogar acessos, o SP do app precisa de <code>USE CATALOG</code> + <code>MANAGE</code> nos schemas alvo (passo 4).</p>
+        <p class="ct"><b>Dois privilégios são pré-condição.</b> Para as <b>synced tables nativas</b> (modo <code>native</code>, passo 3), quem roda o setup precisa de <b><code>CREATE CATALOG</code> no metastore</b> — é o que permite ao Lakebase materializar o espelho da governança. E para conceder/revogar acessos, o <b>Service Principal do app</b> precisa de <code>USE CATALOG</code> + <code>MANAGE</code> nos schemas alvo (configurado no passo 4). Sem eles, o setup e a efetivação falham com erro de permissão.</p>
       </div>
       <div class="refs">
         <a class="ref ext" href="https://docs.databricks.com/aws/en/compute/sql-warehouse/" target="_blank" rel="noopener">SQL Warehouses <span class="ar">↗</span></a>
@@ -289,7 +399,7 @@ databricks postgres create-project marketplace-dados \
         <div><h2>Configuração</h2>
         <p class="sub">Parâmetros por ambiente — via <code>app.yaml</code> ou variáveis de ambiente.</p></div>
       </div>
-      <p class="narrow">Nenhum valor é fixo no código fora de <code>app/config.py</code>. Em produção, prefira <code>valueFrom</code> no <code>app.yaml</code> para IDs de recursos e um <em>secret</em> para a chave da sessão.</p>
+      <p class="narrow">Todo o comportamento específico da workspace é controlado por variáveis de ambiente, lidas de forma central em <code>app/config.py</code> — nenhum ID de recurso fica embutido no código. Isso é o que torna a mesma base portável de dev para o cliente: só mudam os valores abaixo. Em produção, prefira <code>valueFrom</code> no <code>app.yaml</code> (que resolve o ID a partir de um recurso vinculado à app) em vez de <code>value</code> com o ID escrito à mão, e configure a chave de sessão como um <em>secret</em>, nunca em texto puro.</p>
       <div class="kv">
         <div class="row"><div class="key">UC_CATALOG</div><div class="val">Catálogo UC onde estão os schemas dos dados. Ex.: <code>catalogo_producao</code></div></div>
         <div class="row"><div class="key">DATABRICKS_WAREHOUSE_ID</div><div class="val">Warehouse para DDL/GRANT/REVOKE.</div></div>
@@ -312,6 +422,7 @@ env:
   - name: APP_ENABLE_PROXY
     value: "false"        <span class="c"># produção: sem "atuar como"</span></code></pre>
       </div>
+      <p class="narrow">Duas variáveis merecem atenção em produção. <code>GRANT_EXECUTE_REAL=true</code> liga a efetivação real no Unity Catalog — com <code>false</code>, o app registra todo o fluxo mas não executa o grant (útil só para ensaios). E <code>APP_ENABLE_PROXY=false</code> desativa o seletor "atuar como" (usado na demo para simular personas); em produção a identidade vem exclusivamente do SSO, pelo cabeçalho <code>X-Forwarded-Email</code> que o Databricks Apps injeta a cada requisição.</p>
       <div class="refs">
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/app-runtime" target="_blank" rel="noopener">Referência do app.yaml <span class="ar">↗</span></a>
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources" target="_blank" rel="noopener">Recursos da App <span class="ar">↗</span></a>
@@ -327,7 +438,7 @@ env:
         <div><h2>Banco de dados</h2>
         <p class="sub">Um único entrypoint idempotente provisiona tudo.</p></div>
       </div>
-      <p class="narrow">O comando cria o schema <code>gestao_acesso</code> no Lakebase (ciclo de vida do acesso) e popula a governança. Em produção use <code>--no-seed</code>: nada sintético é criado e o app passa a consumir a governança e os schemas <strong>reais</strong> do cliente.</p>
+      <p class="narrow">O banco do app tem dois schemas no Lakebase, com papéis distintos. <code>governanca</code> é um <strong>espelho de leitura</strong> — populado a partir das tabelas Delta do Motor de Governança via synced tables; o app nunca escreve nele. <code>gestao_acesso</code> é o schema <strong>transacional do app</strong> — é onde ficam solicitações, autorizações, aprovações, acessos, execuções técnicas e a trilha de auditoria. O comando abaixo cria e popula os dois de forma idempotente (pode rodar de novo com segurança).</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
 <pre><code><span class="c"># PRODUÇÃO — synced tables nativas, SEM seed sintético</span>
@@ -336,6 +447,7 @@ python -m db.setup --mode native --no-seed
 <span class="c"># DEV / demo — sync controlado Delta→Lakebase + seed sintético</span>
 python -m db.setup --mode dev</code></pre>
       </div>
+      <p class="narrow">A diferença entre os modos é <em>como</em> a governança chega ao Lakebase. Em <code>--mode native</code> (produção), o Lakebase mantém <strong>synced tables nativas</strong> que replicam continuamente o Delta real do Motor — por isso exige <code>CREATE CATALOG</code> no metastore. Em <code>--mode dev</code>, um sync controlado copia um schema Delta sintético, sem exigir esse privilégio. Já o <code>--seed</code> controla se dados <em>sintéticos</em> são criados: ele liga por padrão em dev e desliga em native, e você pode forçar qualquer combinação (<code>--seed</code> / <code>--no-seed</code>).</p>
       <h3>O que cada passo faz</h3>
       <div class="tablewrap">
         <table>
@@ -367,7 +479,8 @@ python -m db.setup --mode dev</code></pre>
         <div><h2>Permissões do app (service principal)</h2>
         <p class="sub">O app efetiva o acesso agindo como o SP — que precisa poder conceder.</p></div>
       </div>
-      <p class="narrow">O script <code>scripts/grant_app_sp.py &lt;sp_client_id&gt;</code> aplica o lado Unity Catalog e o warehouse. Abaixo, os comandos equivalentes explícitos.</p>
+      <p class="narrow">Quando roda no Databricks Apps, o app tem a identidade de um <strong>service principal</strong> (SP). É esse SP que executa os grants — então ele precisa ter poder para conceder. São três frentes de permissão, cada uma por um motivo específico. O script <code>scripts/grant_app_sp.py &lt;sp_client_id&gt;</code> aplica o lado Unity Catalog e o warehouse automaticamente; abaixo estão os comandos equivalentes explícitos, para auditoria.</p>
+      <p class="narrow"><b>Por que <code>MANAGE</code> no catálogo?</b> Para conceder <code>USE CATALOG</code> a um beneficiário, o próprio SP precisa poder administrar esse privilégio no catálogo — daí <code>MANAGE ON CATALOG</code>. Nos schemas alvo, <code>MANAGE</code> permite ao SP conceder e revogar <code>SELECT</code>/<code>MODIFY</code> em nome dos owners.</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">sql · Unity Catalog</span></div>
 <pre><code><span class="c">-- MANAGE no catálogo é necessário para o SP conceder USE CATALOG aos beneficiários</span>
@@ -397,6 +510,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA gestao_acesso TO "&
 ALTER DEFAULT PRIVILEGES IN SCHEMA gestao_acesso
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "&lt;sp-client-id&gt;";</code></pre>
       </div>
+      <p class="narrow">Cada frente cobre um trecho do fluxo: o <b>warehouse</b> (<code>CAN_USE</code>) é onde o SP executa o SQL de grant; o <b>role no Lakebase</b> dá ao SP um token OAuth para conectar no Postgres; e os grants no Postgres deixam o SP <em>ler</em> a governança (só <code>SELECT</code>) e <em>ler e escrever</em> o ciclo de vida em <code>gestao_acesso</code>. O <code>ALTER DEFAULT PRIVILEGES</code> garante que tabelas criadas no futuro já nasçam acessíveis ao SP.</p>
       <div class="callout warn">
         <span class="ico">grupos</span>
         <p class="ct">Grants a grupo exigem <b>account groups</b> no Unity Catalog (D-009). Grupos criados via SCIM que são workspace-local resultam em <code>ERRO_EFETIVACAO</code> (tratável/reprocessável). Em produção, use grupos de conta reais.</p>
@@ -425,7 +539,8 @@ databricks sync . /Workspace/Users/&lt;voce&gt;/marketplace-dados
 databricks apps deploy marketplace-dados \
   --source-code-path /Workspace/Users/&lt;voce&gt;/marketplace-dados</code></pre>
       </div>
-      <p class="narrow">Runtime: <code>gunicorn -c gunicorn.conf.py app:app</code> (definido no <code>app.yaml</code>). O app faz <em>bind</em> na porta <code>DATABRICKS_APP_PORT</code> — nunca 8080. Configure <code>FLASK_SECRET_KEY</code> como <em>secret</em>/recurso da app.</p>
+      <p class="narrow">São três comandos com papéis distintos: <code>apps create</code> registra a aplicação (uma vez só, e é aqui que o service principal do app é criado); <code>sync</code> envia o código para uma pasta no Workspace; e <code>apps deploy</code> publica aquele código como a versão ativa. Para <strong>atualizações</strong> depois, basta repetir <code>sync</code> + <code>deploy</code> — não é preciso recriar a app.</p>
+      <p class="narrow">O comando de runtime é <code>gunicorn -c gunicorn.conf.py app:app</code>, definido no <code>app.yaml</code> — Flask em produção roda sob Gunicorn, não no servidor de desenvolvimento. O app faz <em>bind</em> na porta da variável <code>DATABRICKS_APP_PORT</code> (nunca 8080). Configure <code>FLASK_SECRET_KEY</code> como <em>secret</em>/recurso da app, e vincule os recursos (warehouse, Lakebase) para que o <code>valueFrom</code> do <code>app.yaml</code> resolva os IDs.</p>
       <div class="refs">
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/" target="_blank" rel="noopener">Databricks Apps <span class="ar">↗</span></a>
         <a class="ref ext" href="https://apps-cookbook.dev/" target="_blank" rel="noopener">Apps Cookbook <span class="ar">↗</span></a>
@@ -448,7 +563,7 @@ databricks apps deploy marketplace-dados \
 <span class="c"># Suite de integração apontando para a workspace</span>
 pytest tests/</code></pre>
       </div>
-      <p class="narrow">Percorra o fluxo no app — <strong>solicitar → autorizar (gestor) → aprovar (owner) → efetivar</strong> — e confirme a concessão no Catalog Explorer ou por SQL:</p>
+      <p class="narrow">O endpoint <code>/health</code> confirma que o app subiu e conecta no banco. A suíte de integração exercita as regras de negócio e um fluxo ponta a ponta com grant/revoke reais. Depois, faça o teste que mais convence: percorra o fluxo no próprio app — <strong>solicitar → autorizar (gestor) → aprovar (owner) → efetivar</strong> — e confirme a concessão no Catalog Explorer ou por SQL, antes e depois:</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">sql</span></div>
 <pre><code>SHOW GRANTS ON SCHEMA &lt;UC_CATALOG&gt;.&lt;schema_real&gt;;</code></pre>
