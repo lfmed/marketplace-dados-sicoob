@@ -11,3 +11,8 @@ scripts/model.xml
 .claude/
 /tmp/
 demo/clips/
+
+# Documentos-fonte do cliente — mantidos só localmente, fora do git
+*.pdf
+*.drawio.html
+/Screenshot*.png
