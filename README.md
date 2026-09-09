@@ -34,7 +34,7 @@ db/
   native_sync_setup.py   synced tables NATIVAS (cliente)
   setup.py      entrypoint único: python -m db.setup --mode dev|native
 tests/          pytest (regras de negócio + e2e com grant real)
-docs/           PROMPT_REGISTRY, DECISIONS, DEPLOY, modelo de dados
+docs/           DECISIONS, DEPLOY, guia de implantação (HTML), modelo de dados
 scripts/        helpers (uc_sql, lb_conn, smoke_fluxo)
 ```
 

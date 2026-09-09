@@ -240,6 +240,7 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
       <li><a href="#s1"><span class="k">1</span> Pré-requisitos</a></li>
       <li><a href="#s2"><span class="k">2</span> Configuração</a></li>
       <li><a href="#s3"><span class="k">3</span> Banco de dados</a></li>
+      <li><a href="#cat"><span class="k">◇</span> Catálogos &amp; schemas</a></li>
       <li><a href="#s4"><span class="k">4</span> Permissões do app</a></li>
       <li><a href="#s5"><span class="k">5</span> Publicar o app</a></li>
       <li><a href="#s6"><span class="k">6</span> Verificação</a></li>
@@ -469,6 +470,77 @@ python -m db.setup --mode dev</code></pre>
         <span class="ref doc-int">db/native_sync_setup.py</span>
         <a class="ref ext" href="https://docs.databricks.com/aws/en/oltp/" target="_blank" rel="noopener">Synced tables (reverse ETL) <span class="ar">↗</span></a>
         <span class="ref doc-int">docs/DEPLOY.md · §3</span>
+      </div>
+    </section>
+
+    <!-- Catálogos & schemas -->
+    <section class="section" id="cat">
+      <div class="section-head">
+        <span class="section-num" style="font-size:1rem">◇</span>
+        <div><h2>Catálogos &amp; schemas — quem cria o quê</h2>
+        <p class="sub">O que nasce no Lakehouse (Unity Catalog) e o que nasce no Lakebase (Postgres).</p></div>
+      </div>
+      <p class="narrow"><b>Sim — o cliente pode criar os catálogos.</b> O catálogo de destino é sempre um <em>parâmetro</em> (<code>UC_CATALOG</code>): o app <b>nunca cria o catálogo padrão</b>, ele o assume já existente e cria apenas <em>schemas</em> dentro dele (decisão D-007). E há total flexibilidade no <em>como</em>: cada objeto pode ser criado pelo setup idempotente <b>ou manualmente</b> pelo cliente — inclusive a criação das tabelas e o seed são escolhas independentes.</p>
+
+      <h3>No Lakehouse (Unity Catalog)</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Objeto</th><th>Arquivo</th><th>Dev</th><th>Produção</th></tr></thead>
+        <tbody>
+          <tr><td><span class="what">Catálogo padrão</span><span class="why"><code>UC_CATALOG</code> — onde ficam os schemas de dados</span></td><td><code>app/config.py</code></td><td>já existe</td><td><span class="who cli">Cliente cria/possui</span></td></tr>
+          <tr><td><span class="what">Governança em Delta</span><span class="why">16 tabelas: domínios, iniciativas, owners…</span></td><td><code>db/seed/delta_governanca.py</code></td><td>schema <code>marketplace_governanca</code> (sintético)</td><td><span class="who cli">Vem do Motor</span> (Delta real)</td></tr>
+          <tr><td><span class="what">Schemas-alvo de grant</span><span class="why">os dados por iniciativa + camada</span></td><td><code>db/seed/seed_uc_targets.py</code></td><td><code>mkt_*</code> (sintéticos)</td><td><span class="who cli">Schemas reais</span> do cliente</td></tr>
+          <tr><td><span class="what">Grupos de conta</span><span class="why">para grant por grupo (D-009)</span></td><td><code>db/seed/seed_uc_targets.py</code></td><td>criados no seed</td><td><span class="who cli">Account groups</span> do cliente</td></tr>
+          <tr><td><span class="what">Catálogo do Lakebase no UC</span><span class="why"><code>LAKEBASE_UC_CATALOG</code> — registra o Postgres no UC</span></td><td><code>db/native_sync_setup.py</code></td><td>n/a (dev usa sync controlado)</td><td><span class="who fe">Setup</span> ou <span class="who cli">cliente pré-cria</span></td></tr>
+          <tr><td><span class="what">Schema de checkpoints</span><span class="why">pipeline das synced tables</span></td><td><code>db/native_sync_setup.py</code></td><td>n/a</td><td><code>marketplace_sync_ckpt</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>No Lakebase (Postgres)</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Objeto</th><th>Arquivo</th><th>Papel</th></tr></thead>
+        <tbody>
+          <tr><td><span class="what"><code>gestao_acesso</code> + tabelas</span><span class="why">solicitações, aprovações, acessos, execuções, auditoria</span></td><td><code>db/ddl/02_gestao_acesso.sql</code></td><td>Sempre · <b>gravável</b> (estado do app)</td></tr>
+          <tr><td><span class="what"><code>governanca</code> — dev</span><span class="why">espelho por sync controlado</span></td><td><code>db/ddl/01_governanca.sql</code> + <code>db/sync/sync_governanca.py</code></td><td>Leitura</td></tr>
+          <tr><td><span class="what"><code>governanca</code> — produção</span><span class="why">synced tables nativas do Delta</span></td><td><code>db/native_sync_setup.py</code></td><td>Somente leitura</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Dois caminhos: automatizado ou manual</h3>
+      <p class="narrow">A criação das tabelas e o seed são <b>decisões independentes</b>. Você pode deixar o <code>db.setup</code> fazer tudo, aplicar os DDLs à mão, e popular a governança com o seu próprio processo — em qualquer combinação.</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash · criação das tabelas</span></div>
+<pre><code><span class="c"># A) Automatizado — cria schemas/tabelas, registra o catálogo e as synced tables</span>
+python -m db.setup --mode native --no-seed
+
+<span class="c"># B) Manual — aplica os DDLs direto no Lakebase (ex.: via psql)</span>
+<span class="c">#    o token do Lakebase é OAuth e expira em 1h — gere sob demanda</span>
+psql "$LAKEBASE_URL" -f db/ddl/02_gestao_acesso.sql   <span class="c"># tabelas do app (sempre)</span>
+psql "$LAKEBASE_URL" -f db/ddl/01_governanca.sql      <span class="c"># opcional: governança no Lakebase</span></code></pre>
+      </div>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash · seed (opcional)</span></div>
+<pre><code><span class="c"># O seed é OPCIONAL e independente da criação das tabelas:</span>
+python -m db.setup --mode dev              <span class="c"># dados sintéticos (demo)</span>
+python -m db.setup --mode native --no-seed <span class="c"># sem seed — governança vem do Motor</span>
+<span class="c"># ...ou popule a governança com o seu próprio ETL / manualmente</span></code></pre>
+      </div>
+
+      <div class="callout">
+        <span class="ico">2 catálogos</span>
+        <p class="ct"><b>Posso criar os catálogos eu mesmo?</b> Sim. O <b>catálogo padrão</b> (<code>UC_CATALOG</code>) já é assumido como existente — você o cria e possui. O <b>catálogo do Lakebase no UC</b> (<code>LAKEBASE_UC_CATALOG</code>, ex.: <code>lakebase_marketplace</code>) é criado por <code>db/native_sync_setup.py</code> se o executor tiver <code>CREATE CATALOG</code>; se preferir, um admin do metastore o <b>pré-cria</b> e você só aponta <code>LAKEBASE_UC_CATALOG</code> — o setup detecta que já existe e pula a criação.</p>
+      </div>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">yaml · env dos catálogos</span></div>
+<pre><code>UC_CATALOG:          "&lt;catalogo_do_cliente&gt;"    <span class="c"># existente; só criamos schemas nele</span>
+UC_SCHEMA_PREFIX:    "mkt"                        <span class="c"># prefixo dos schemas de dados (dev)</span>
+LAKEBASE_UC_CATALOG: "lakebase_marketplace"       <span class="c"># catálogo que registra o Postgres no UC</span></code></pre>
+      </div>
+      <div class="refs">
+        <span class="ref doc-int">db/setup.py</span>
+        <span class="ref doc-int">db/ddl/01_governanca.sql · 02_gestao_acesso.sql</span>
+        <span class="ref doc-int">db/native_sync_setup.py</span>
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/data-governance/unity-catalog/" target="_blank" rel="noopener">Criar catálogos no UC <span class="ar">↗</span></a>
+        <span class="ref doc-int">docs/DECISIONS.md · D-007 / D-008 / D-010</span>
       </div>
     </section>
 
