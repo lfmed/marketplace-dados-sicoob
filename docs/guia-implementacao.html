@@ -237,6 +237,7 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
     <ol>
       <li><a href="#arch"><span class="k">◇</span> Arquitetura</a></li>
       <li><a href="#s0"><span class="k">0</span> O que provisionar</a></li>
+      <li><a href="#git"><span class="k">◇</span> Obter o código</a></li>
       <li><a href="#s1"><span class="k">1</span> Pré-requisitos</a></li>
       <li><a href="#s2"><span class="k">2</span> Configuração</a></li>
       <li><a href="#s3"><span class="k">3</span> Banco de dados</a></li>
@@ -361,6 +362,54 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
         <span class="ref doc-int">docs/DEPLOY.md · §0</span>
         <span class="ref doc-int">docs/DECISIONS.md · D-007 / D-008 / D-009</span>
         <span class="ref doc-int">docs/01-modelo-dados.md</span>
+      </div>
+    </section>
+
+    <!-- Obter o código -->
+    <section class="section" id="git">
+      <div class="section-head">
+        <span class="section-num" style="font-size:1rem">◇</span>
+        <div><h2>Obter o código (Git → Databricks)</h2>
+        <p class="sub">De onde vem o código e como levá-lo para a workspace.</p></div>
+      </div>
+      <p class="narrow">O código-fonte do app está em um repositório Git. Há duas formas de trazê-lo para a workspace: via <b>Git folders</b> do próprio Databricks (recomendado — clona o repo dentro da workspace e atualiza com um <em>pull</em>) ou clonando localmente e usando <code>databricks sync</code> (passo 5).</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">repositório do projeto</span></div>
+<pre><code>https://github.com/lfmed/marketplace-dados-sicoob</code></pre>
+      </div>
+
+      <h3>Opção A — Git folders no Databricks (recomendado)</h3>
+      <p class="narrow">Como o repositório é privado, primeiro configure as credenciais Git na workspace em <em>Settings → Linked accounts</em> (usuário do GitHub + token/PAT com acesso de leitura). Depois clone o repo para dentro da workspace:</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
+<pre><code><span class="c"># Via UI: Workspace → Repos → Add repo → cole a URL do repositório</span>
+
+<span class="c"># Ou via CLI:</span>
+databricks repos create https://github.com/lfmed/marketplace-dados-sicoob.git gitHub \
+  --path /Workspace/Users/&lt;voce&gt;/marketplace-dados
+
+<span class="c"># atualizar depois, ao chegarem novos commits:</span>
+databricks repos update /Workspace/Users/&lt;voce&gt;/marketplace-dados --branch main</code></pre>
+      </div>
+      <p class="narrow">Com o código já na workspace, o <code>--source-code-path</code> do deploy (passo 5) aponta direto para essa pasta — não é preciso o <code>databricks sync</code>.</p>
+
+      <h3>Opção B — Clonar localmente + sync</h3>
+      <p class="narrow">Se preferir trabalhar da sua máquina, clone o repo e use o <code>databricks sync</code> do passo 5 para enviar o código à workspace.</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
+<pre><code>git clone https://github.com/lfmed/marketplace-dados-sicoob.git
+cd marketplace-dados-sicoob
+pip install -r requirements.txt
+<span class="c"># ...siga para os passos 1–5</span></code></pre>
+      </div>
+
+      <div class="callout">
+        <span class="ico">privado</span>
+        <p class="ct"><b>Repositório privado.</b> Solicite acesso de leitura ao responsável (ou use o token/PAT fornecido). Nenhum segredo vive no código — credenciais e IDs de recurso ficam em variáveis de ambiente / <em>secret</em> da app (passo 2).</p>
+      </div>
+      <div class="refs">
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/repos/" target="_blank" rel="noopener">Git folders (Repos) <span class="ar">↗</span></a>
+        <span class="ref doc-int">passo 5 · publicar</span>
       </div>
     </section>
 
@@ -602,6 +651,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA gestao_acesso
         <div><h2>Publicar o app</h2>
         <p class="sub">Databricks Apps — criar, sincronizar, publicar.</p></div>
       </div>
+      <p class="narrow">Com o código já disponível (ver <a href="#git">Obter o código</a>): se você usou <b>Git folders</b>, pule o <code>sync</code> e aponte o <code>--source-code-path</code> para a pasta do repo na workspace; se clonou localmente, use o <code>sync</code> para enviar o código.</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
 <pre><code>databricks apps create marketplace-dados
