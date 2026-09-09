@@ -35,7 +35,8 @@ def create_delta_tables():
             t = delta_type(c)
             nn = " NOT NULL" if c in pk else ""
             coldefs.append(f"{c} {t}{nn}")
-        ddl = (f"CREATE TABLE IF NOT EXISTS {cat}.{GOV_SCHEMA_UC}.{tabela} "
+        # CREATE OR REPLACE p/ acompanhar evolução de schema no seed (dev; recria vazio).
+        ddl = (f"CREATE OR REPLACE TABLE {cat}.{GOV_SCHEMA_UC}.{tabela} "
                f"({', '.join(coldefs)}) "
                f"TBLPROPERTIES (delta.enableChangeDataFeed = true)")
         run_sql(ddl)

@@ -122,6 +122,18 @@ CREATE TABLE IF NOT EXISTS evento_ciclo_vida (
     datahora_evento              TIMESTAMP DEFAULT now()
 );
 
+-- ---------- Migração p/ modelo ativo-cêntrico (o ativo é a unidade liberável) ----------
+-- A solicitação/acesso passam a ancorar em id_ativo_aisn; iniciativa/ambiente viram
+-- contexto opcional (ativos de DOMINIO/SUBDOMINIO não têm iniciativa única).
+ALTER TABLE solicitacao_acesso ADD COLUMN IF NOT EXISTS id_ativo_aisn VARCHAR(255);
+ALTER TABLE solicitacao_acesso ALTER COLUMN id_iniciativa_aisn DROP NOT NULL;
+ALTER TABLE solicitacao_acesso ALTER COLUMN id_ambiente_aisn   DROP NOT NULL;
+ALTER TABLE acesso ADD COLUMN IF NOT EXISTS id_ativo_aisn VARCHAR(255);
+ALTER TABLE acesso ALTER COLUMN id_iniciativa_aisn DROP NOT NULL;
+ALTER TABLE acesso ALTER COLUMN id_ambiente_aisn   DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_solicitacao_ativo ON solicitacao_acesso(id_ativo_aisn);
+CREATE INDEX IF NOT EXISTS idx_acesso_ativo ON acesso(id_ativo_aisn);
+
 CREATE INDEX IF NOT EXISTS idx_solicitacao_solicitante ON solicitacao_acesso(id_usuario_solicitante);
 CREATE INDEX IF NOT EXISTS idx_solicitacao_status ON solicitacao_acesso(cod_status_solicitacao);
 CREATE INDEX IF NOT EXISTS idx_solicitacao_iniciativa ON solicitacao_acesso(id_iniciativa_aisn);

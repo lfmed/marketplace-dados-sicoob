@@ -8,10 +8,10 @@
 <div class="panel">
   <h3>Acesso padrão como owner <span class="muted">(RN-016 — não precisa solicitar)</span></h3>
   <table>
-    <tr><th>Iniciativa</th><th>Domínio</th><th>Schemas</th></tr>
+    <tr><th>Ativo</th><th>Nível</th><th>Domínio</th></tr>
     {% for o in padrao_owner %}
-    <tr><td><b>{{ o.nome_iniciativa }}</b></td><td>{{ o.nome_dominio }} · {{ o.nome_subdominio }}</td>
-        <td><span class="muted">{{ o.schemas or '—' }}</span></td></tr>
+    <tr><td><b>{{ o.nome_ativo }}</b></td><td>{{ o.cod_tipo_ativo }}</td>
+        <td><span class="muted">{{ o.nome_dominio or '—' }}{% if o.nome_subdominio %} · {{ o.nome_subdominio }}{% endif %}</span></td></tr>
     {% endfor %}
   </table>
 </div>
@@ -20,13 +20,12 @@
 <div class="panel">
   <h3>Acessos concedidos</h3>
   <table>
-    <tr><th>Iniciativa</th><th>Origem</th><th>Camadas</th><th>Ambiente</th><th>Status</th><th>SLA / efetivação</th></tr>
+    <tr><th>Ativo</th><th>Origem</th><th>Nível</th><th>Status</th><th>SLA / efetivação</th></tr>
     {% for a in acessos %}
     <tr>
-      <td><b>{{ a.nome_iniciativa }}</b></td>
+      <td><b>{{ a.nome_ativo }}</b>{% if a.nome_dominio %}<br><span class="muted">{{ a.nome_dominio }}</span>{% endif %}</td>
       <td>{{ a.origem }}</td>
-      <td>{{ a.camadas }}</td>
-      <td>{{ a.nome_ambiente }}</td>
+      <td>{{ a.cod_tipo_ativo }}</td>
       <td>{{ m.badge_ac(a.cod_status_acesso) }}</td>
       <td class="muted">
         {% if a.cod_status_acesso == S.A_AGUARDANDO_EFETIVACAO %}
@@ -36,7 +35,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="6" class="muted">Nenhum acesso ativo.</td></tr>
+    <tr><td colspan="5" class="muted">Nenhum acesso ativo.</td></tr>
     {% endfor %}
   </table>
 </div>

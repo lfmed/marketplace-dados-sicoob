@@ -5,12 +5,12 @@
 <div class="banner"><h2>📝 Minhas solicitações</h2><p>Acompanhe o ciclo de vida das suas solicitações de acesso</p></div>
 <div class="panel">
   <table>
-    <tr><th>Iniciativa</th><th>Beneficiário</th><th>Camadas</th><th>Status</th><th>Acesso</th><th>Criada</th><th></th></tr>
+    <tr><th>Ativo</th><th>Beneficiário</th><th>Nível</th><th>Status</th><th>Acesso</th><th>Criada</th><th></th></tr>
     {% for s in solicitacoes %}
     <tr>
-      <td><b>{{ s.nome_iniciativa }}</b><br><span class="muted">{{ s.nome_ambiente }} · {{ s.cod_tipo_acesso }}</span></td>
+      <td><b>{{ s.nome_ativo }}</b><br><span class="muted">{{ s.nome_dominio }}{% if s.nome_subdominio %} · {{ s.nome_subdominio }}{% endif %} · {{ s.cod_tipo_acesso }}</span></td>
       <td>{% if s.cod_tipo_beneficiario=='GRUPO' %}Grupo: {{ s.nome_grupo }}{% else %}{{ s.nome_beneficiario }}{% endif %}</td>
-      <td>{{ s.camadas }}</td>
+      <td>{{ s.cod_tipo_ativo }}</td>
       <td>{{ m.badge_sol(s.cod_status_solicitacao) }}</td>
       <td>{{ m.badge_ac(s.cod_status_acesso) }}</td>
       <td class="muted">{{ s.datahora_criacao.strftime('%d/%m %H:%M') if s.datahora_criacao }}</td>

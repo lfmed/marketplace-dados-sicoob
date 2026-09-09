@@ -142,18 +142,33 @@ CREATE TABLE IF NOT EXISTS grupo_acesso_membro (
     PRIMARY KEY (id_grupo_acesso, id_entidade)
 );
 
+-- Ativo = unidade liberável do marketplace (RN-001). Pode ser em qualquer nível
+-- (DOMINIO/SUBDOMINIO/INICIATIVA/TABELA); tem grupo próprio e owner (ativo_proprietario).
+-- Derivado das entidades de governança; em produção vem do Motor de Governança.
 CREATE TABLE IF NOT EXISTS ativo_aisn (
     id_ativo_aisn              VARCHAR(255) PRIMARY KEY,
     id_grupo_acesso            VARCHAR(255) REFERENCES grupo_acesso(id_grupo_acesso),
-    cod_tipo_ativo             VARCHAR(50),
+    cod_tipo_ativo             VARCHAR(50),          -- DOMINIO | SUBDOMINIO | INICIATIVA | TABELA
+    id_referencia              VARCHAR(255),         -- id da entidade de origem (por cod_tipo_ativo)
     nome_ativo                 VARCHAR(255) NOT NULL,
     desc_ativo                 VARCHAR(1000),
+    nome_dominio               VARCHAR(255),         -- breadcrumb (denormalizado do Motor)
+    nome_subdominio            VARCHAR(255),
+    nome_catalogo              VARCHAR(255),         -- alvo UC (INICIATIVA/TABELA); expande p/ níveis maiores
+    nome_schema                VARCHAR(255),
+    nome_tabela                VARCHAR(255),
     bol_elegivel_acesso        BOOLEAN DEFAULT true,
     datahora_inicio_validade   TIMESTAMP DEFAULT now(),
     datahora_fim_validade      TIMESTAMP,
     bol_atual                  BOOLEAN DEFAULT true,
     bol_excluido               BOOLEAN DEFAULT false
 );
+ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS id_referencia   VARCHAR(255);
+ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_dominio    VARCHAR(255);
+ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_subdominio VARCHAR(255);
+ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_catalogo   VARCHAR(255);
+ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_schema     VARCHAR(255);
+ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_tabela     VARCHAR(255);
 
 -- ---------- Owners (proprietários) ----------
 CREATE TABLE IF NOT EXISTS dominio_proprietario (

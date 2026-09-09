@@ -14,21 +14,19 @@ def solicitar():
         flash("Usuário não identificado no catálogo.", "erro")
         return redirect(url_for("catalog.catalogo"))
     tipo_benef = request.form.get("tipo_beneficiario", C.B_NOMINAL)
-    id_iniciativa = request.form.get("id_iniciativa")
-    id_ambiente = request.form.get("id_ambiente")
-    ica_ids = request.form.getlist("camadas")
+    id_ativo = request.form.get("id_ativo")
     justificativa = request.form.get("justificativa")
     id_grupo = request.form.get("id_grupo_acesso") or None
     tipo_acesso = request.form.get("tipo_acesso") or "LEITURA"
     try:
         id_sol = request_service.criar_solicitacao(
-            u, tipo_benef, id_iniciativa, id_ambiente, ica_ids,
-            tipo_acesso=tipo_acesso, justificativa=justificativa, id_grupo=id_grupo)
+            u, tipo_benef, id_ativo, tipo_acesso=tipo_acesso,
+            justificativa=justificativa, id_grupo=id_grupo)
         flash("Solicitação criada com sucesso.", "ok")
         return redirect(url_for("requests.detalhe", id_solicitacao=id_sol))
     except RegraNegocioError as e:
         flash(str(e), "erro")
-        return redirect(url_for("catalog.iniciativa", id_iniciativa=id_iniciativa))
+        return redirect(url_for("catalog.ativo", id_ativo=id_ativo))
 
 
 @bp.route("/minhas-solicitacoes")

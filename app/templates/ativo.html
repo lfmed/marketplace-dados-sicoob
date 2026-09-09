@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ ativo.nome_ativo }} · Marketplace{% endblock %}
+{% block content %}
+<a class="muted" href="{{ url_for('catalog.catalogo') }}">&larr; Voltar ao catálogo</a>
+
+<div class="banner" style="margin-top:10px">
+  <div class="tags" style="margin-bottom:8px">
+    <span class="pill lvl">{{ ativo.tipo_label }}</span>
+    {% if ativo.nome_dominio %}<span class="pill dom">{{ ativo.nome_dominio }}</span>{% endif %}
+    {% if ativo.nome_subdominio %}<span class="pill sub">{{ ativo.nome_subdominio }}</span>{% endif %}
+  </div>
+  <h2>{{ ativo.nome_ativo }}</h2>
+  <p>{{ ativo.desc_ativo }}</p>
+</div>
+
+<div class="panel">
+  <h3>Responsáveis (owners)</h3>
+  {% for o in ativo.owners %}
+    <span class="badge b-info">👤 {{ o.nome_completo }}{% if o.bol_principal %} · principal{% endif %}</span>
+  {% else %}<span class="muted">Sem owner.</span>{% endfor %}
+  {% if ativo.nome_grupo %}
+  <div style="margin-top:10px" class="muted">Grupo do ativo (liberação por grupo): <code class="schip">{{ ativo.nome_grupo }}</code></div>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h3>Escopo de dados (objetos concedidos)</h3>
+  <p class="muted">O acesso é concedido no nível do ativo (<b>{{ ativo.tipo_label }}</b>) e cobre
+    {{ ativo.objetos|length }} objeto(s) do Unity Catalog.</p>
+  <table>
+    <tr><th>Tipo</th><th>Objeto (Unity Catalog)</th></tr>
+    {% for o in ativo.objetos %}
+    <tr><td>{{ o.tipo }}</td><td><code class="schip">{{ o.rotulo }}</code></td></tr>
+    {% else %}
+    <tr><td colspan="2" class="muted">Sem objetos resolvidos para este ativo.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="panel">
+  <h3>Solicitar acesso</h3>
+  <form method="post" action="{{ url_for('requests.solicitar') }}">
+    <input type="hidden" name="id_ativo" value="{{ ativo.id_ativo_aisn }}">
+
+    <div class="radio-row">
+      <label><input type="radio" name="tipo_beneficiario" value="NOMINAL" checked> Para mim (nominal)</label>
+      {% if meus_grupos %}
+      <label><input type="radio" name="tipo_beneficiario" value="GRUPO"> Para um grupo exploratório</label>
+      {% endif %}
+    </div>
+
+    {% if meus_grupos %}
+    <div class="form-row">
+      <label>Grupo beneficiário (se acesso por grupo)</label>
+      <select name="id_grupo_acesso">
+        {% for g in meus_grupos %}<option value="{{ g.id_grupo_acesso }}">{{ g.nome_grupo }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="form-row">
+      <label>Tipo de acesso (RF-014)</label>
+      <select name="tipo_acesso">
+        <option value="LEITURA">Leitura (SELECT)</option>
+        <option value="LEITURA_ESCRITA">Leitura e escrita (SELECT + MODIFY)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>Justificativa</label>
+      <textarea name="justificativa" rows="3" placeholder="Descreva a necessidade de negócio do acesso"></textarea>
+    </div>
+
+    <button class="btn" type="submit">Enviar solicitação</button>
+    <span class="muted" style="margin-left:10px">Fluxo: gestor imediato → owner do ativo → efetivação.</span>
+  </form>
+</div>
+{% endblock %}

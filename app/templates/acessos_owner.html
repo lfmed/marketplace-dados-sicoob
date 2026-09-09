@@ -5,12 +5,12 @@
 <div class="banner"><h2>🛡️ Acessos sob minha responsabilidade</h2><p>Acessos concedidos nas iniciativas das quais você é owner — revogue quando necessário</p></div>
 <div class="panel">
   <table>
-    <tr><th>Iniciativa</th><th>Beneficiário</th><th>Ambiente</th><th>Status</th><th>Ações</th></tr>
+    <tr><th>Ativo</th><th>Beneficiário</th><th>Nível</th><th>Status</th><th>Ações</th></tr>
     {% for a in acessos %}
     <tr>
-      <td><b>{{ a.nome_iniciativa }}</b></td>
+      <td><b>{{ a.nome_ativo }}</b>{% if a.nome_dominio %}<br><span class="muted">{{ a.nome_dominio }}</span>{% endif %}</td>
       <td>{{ a.origem }}</td>
-      <td>{{ a.nome_ambiente }}</td>
+      <td>{{ a.cod_tipo_ativo }}</td>
       <td>{{ m.badge_ac(a.cod_status_acesso) }}
         {% if a.cod_status_acesso == S.A_AGUARDANDO_EFETIVACAO %}
           {% if a.sla_estourado %}<span class="badge b-err">SLA estourado</span>

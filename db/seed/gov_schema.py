@@ -49,8 +49,9 @@ GOV_TABLES = [
      ["id_usuario_aisn", "id_iniciativa_aisn"]),
     # Tabelas do modelo que ficam vazias no seed (criadas p/ fidelidade ao .drawio):
     ("ativo_aisn",
-     ["id_ativo_aisn", "id_grupo_acesso", "cod_tipo_ativo", "nome_ativo", "desc_ativo",
-      "bol_elegivel_acesso"] + SCD2, ["id_ativo_aisn"]),
+     ["id_ativo_aisn", "id_grupo_acesso", "cod_tipo_ativo", "id_referencia", "nome_ativo",
+      "desc_ativo", "nome_dominio", "nome_subdominio", "nome_catalogo", "nome_schema",
+      "nome_tabela", "bol_elegivel_acesso"] + SCD2, ["id_ativo_aisn"]),
     ("dominio_proprietario",
      ["id_usuario_aisn", "id_dominio_informacao", "cod_tipo_proprietario", "bol_principal"] + SCD2,
      ["id_usuario_aisn", "id_dominio_informacao"]),

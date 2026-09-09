@@ -4,7 +4,12 @@
 {% block content %}
 <a class="muted" href="{{ url_for('requests.minhas') }}">&larr; Minhas solicitações</a>
 <div class="banner" style="margin-top:10px">
-  <h2>Solicitação · {{ s.nome_iniciativa }}</h2>
+  <div class="tags" style="margin-bottom:8px">
+    {% if s.cod_tipo_ativo %}<span class="pill lvl">{{ s.cod_tipo_ativo|capitalize }}</span>{% endif %}
+    {% if s.nome_dominio %}<span class="pill dom">{{ s.nome_dominio }}</span>{% endif %}
+    {% if s.nome_subdominio %}<span class="pill sub">{{ s.nome_subdominio }}</span>{% endif %}
+  </div>
+  <h2>Solicitação · {{ s.nome_ativo or '—' }}</h2>
   <p>{{ m.badge_sol(s.cod_status_solicitacao) }} {{ m.badge_ac(s.cod_status_acesso) }}</p>
 </div>
 
@@ -12,9 +17,9 @@
   <div class="kv">
     <div class="k">Solicitante</div><div>{{ s.nome_solicitante }}</div>
     <div class="k">Beneficiário</div><div>{% if s.cod_tipo_beneficiario=='GRUPO' %}Grupo: {{ s.nome_grupo }}{% else %}{{ s.nome_beneficiario }} (nominal){% endif %}</div>
-    <div class="k">Ambiente / tipo</div><div>{{ s.nome_ambiente }} · {{ s.cod_tipo_acesso }}</div>
+    <div class="k">Tipo de acesso</div><div>{{ s.cod_tipo_acesso }}</div>
     <div class="k">Autorizador previsto</div><div>{{ s.nome_autorizador_previsto or '—' }}</div>
-    <div class="k">Camadas</div><div>{% for c in s.camadas %}<code class="schip">{{ c.nome_camada }} → {{ c.nome_catalogo }}.{{ c.nome_schema }}</code> {% endfor %}</div>
+    <div class="k">Escopo (objetos UC)</div><div>{% for o in s.objetos %}<code class="schip">{{ o.rotulo }}</code> {% else %}<span class="muted">—</span>{% endfor %}</div>
     <div class="k">Justificativa</div><div>{{ s.desc_justificativa or '—' }}</div>
   </div>
   {% if s.cod_status_solicitacao in [S.S_PENDENTE_AUTORIZACAO, S.S_AUTORIZADA] %}

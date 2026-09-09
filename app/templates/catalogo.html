@@ -3,7 +3,7 @@
 {% block content %}
 <div class="banner">
   <h2>📚 Catálogo de Produtos de Dados</h2>
-  <p>Explore os produtos de dados e solicite acesso{% if usuario %} · você está como {{ usuario.nome_completo }}{% endif %}</p>
+  <p>Explore os ativos de dados e solicite acesso{% if usuario %} · você está como {{ usuario.nome_completo }}{% endif %}</p>
 </div>
 
 <form class="filters" method="get" action="{{ url_for('catalog.catalogo') }}">
@@ -26,31 +26,41 @@
     </select>
   </div>
   <div class="field">
+    <label>Nível</label>
+    <select name="tipo" onchange="this.form.submit()">
+      <option value="">Todos os níveis</option>
+      {% for t in tipos %}
+      <option value="{{ t }}" {% if f_tipo==t %}selected{% endif %}>{{ tipo_label[t] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
     <label>Buscar</label>
-    <input type="text" name="busca" value="{{ f_busca or '' }}" placeholder="Nome do produto ou descrição">
+    <input type="text" name="busca" value="{{ f_busca or '' }}" placeholder="Nome ou descrição do ativo">
   </div>
   <button class="btn" type="submit">Filtrar</button>
 </form>
 
-<div class="count">{{ total }} produto(s) de dados encontrado(s)</div>
+<div class="count">{{ total }} ativo(s) de dados encontrado(s)</div>
 
 <div class="grid">
-  {% for i in iniciativas %}
+  {% for a in ativos %}
   <div class="card">
     <div class="tags">
-      <span class="pill dom">{{ i.nome_dominio }}</span>
-      <span class="pill sub">{{ i.nome_subdominio }}</span>
+      <span class="pill lvl">{{ tipo_label[a.cod_tipo_ativo] }}</span>
+      {% if a.nome_dominio %}<span class="pill dom">{{ a.nome_dominio }}</span>{% endif %}
+      {% if a.nome_subdominio %}<span class="pill sub">{{ a.nome_subdominio }}</span>{% endif %}
     </div>
-    <h3>{{ i.nome_iniciativa }}</h3>
-    <div class="desc">{{ i.desc_iniciativa }}</div>
+    <h3>{{ a.nome_ativo }}</h3>
+    <div class="desc">{{ a.desc_ativo }}</div>
     <div class="meta">
-      <span>👤 {{ i.owners or '—' }}</span>
-      <span>🗂️ {{ i.num_tabelas }} tabela(s)</span>
+      <span>👤 {{ a.owners or '—' }}</span>
+      {% if a.nome_grupo %}<span>👥 {{ a.nome_grupo }}</span>{% endif %}
     </div>
-    <a class="btn block" href="{{ url_for('catalog.iniciativa', id_iniciativa=i.id_iniciativa_aisn) }}">Ver detalhes &amp; solicitar</a>
+    <a class="btn block" href="{{ url_for('catalog.ativo', id_ativo=a.id_ativo_aisn) }}">Ver detalhes &amp; solicitar</a>
   </div>
   {% else %}
-  <p class="muted">Nenhuma iniciativa encontrada com os filtros atuais.</p>
+  <p class="muted">Nenhum ativo encontrado com os filtros atuais.</p>
   {% endfor %}
 </div>
 {% endblock %}

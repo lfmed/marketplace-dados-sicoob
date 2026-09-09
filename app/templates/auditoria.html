@@ -5,10 +5,10 @@
 <div class="banner"><h2>🕵️ Auditoria</h2><p>Solicitações e acessos das iniciativas sob sua responsabilidade (RF-088)</p></div>
 <div class="panel">
   <table>
-    <tr><th>Iniciativa</th><th>Solicitante</th><th>Beneficiário</th><th>Tipo</th><th>Status solicitação</th><th>Status acesso</th><th>Criada</th></tr>
+    <tr><th>Ativo</th><th>Solicitante</th><th>Beneficiário</th><th>Tipo</th><th>Status solicitação</th><th>Status acesso</th><th>Criada</th></tr>
     {% for l in linhas %}
     <tr>
-      <td><b>{{ l.nome_iniciativa }}</b><br><span class="muted">{{ l.nome_ambiente }}</span></td>
+      <td><b>{{ l.nome_ativo }}</b><br><span class="muted">{{ l.cod_tipo_ativo }}{% if l.nome_dominio %} · {{ l.nome_dominio }}{% endif %}</span></td>
       <td>{{ l.solicitante }}</td>
       <td>{% if l.cod_tipo_beneficiario=='GRUPO' %}Grupo: {{ l.beneficiario_grupo }}{% else %}{{ l.beneficiario_nominal }}{% endif %}</td>
       <td>{{ l.cod_tipo_beneficiario }}</td>

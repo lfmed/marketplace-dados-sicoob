@@ -1,12 +1,18 @@
-"""Catálogo de produtos de dados (RF-006/007). Só expõe iniciativas COM owner (RN-005)."""
+"""Catálogo de produtos de dados — agora ATIVO-cêntrico (RF-006/007).
+O ativo é a unidade liberável (qualquer nível: domínio/subdomínio/iniciativa/tabela),
+derivado da governança, com owner próprio e grupo. Só expõe ativos elegíveis e com owner."""
 from app import db
+from app.services.ativo_scope import objetos_do_ativo, rotulo_objeto
+
+TIPOS_ATIVO = ["DOMINIO", "SUBDOMINIO", "INICIATIVA", "TABELA"]
+TIPO_LABEL = {"DOMINIO": "Domínio", "SUBDOMINIO": "Subdomínio",
+              "INICIATIVA": "Iniciativa", "TABELA": "Tabela"}
 
 
 def listar_dominios():
     return db.query(
         "SELECT id_dominio_informacao, nome_dominio FROM governanca.dominio_informacao "
-        "WHERE bol_atual=true AND bol_excluido=false ORDER BY nome_dominio"
-    )
+        "WHERE bol_atual=true AND bol_excluido=false ORDER BY nome_dominio")
 
 
 def listar_subdominios(id_dominio=None):
@@ -20,83 +26,67 @@ def listar_subdominios(id_dominio=None):
         "FROM governanca.subdominio_informacao WHERE bol_atual=true ORDER BY nome_subdominio")
 
 
-def listar_iniciativas(id_dominio=None, id_subdominio=None, busca=None):
-    """Cards do catálogo: iniciativa + domínio/subdomínio + owner + nº de tabelas.
-    Apenas iniciativas que possuem owner (RN-005)."""
-    where = ["i.bol_atual=true", "i.bol_excluido=false",
-             "EXISTS (SELECT 1 FROM governanca.iniciativa_proprietario p "
-             "        WHERE p.id_iniciativa_aisn=i.id_iniciativa_aisn AND p.bol_atual=true)"]
+def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
+    """Cards do catálogo = ativos. Apenas com owner (RN-005) e elegíveis."""
+    where = ["a.bol_atual=true", "a.bol_excluido=false", "a.bol_elegivel_acesso=true",
+             "EXISTS (SELECT 1 FROM governanca.ativo_proprietario p "
+             "        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true)"]
     params = []
     if id_dominio:
-        where.append("d.id_dominio_informacao=%s"); params.append(id_dominio)
+        where.append("a.nome_dominio=(SELECT nome_dominio FROM governanca.dominio_informacao "
+                     "WHERE id_dominio_informacao=%s)"); params.append(id_dominio)
     if id_subdominio:
-        where.append("s.id_subdominio_informacao=%s"); params.append(id_subdominio)
+        where.append("a.nome_subdominio=(SELECT nome_subdominio FROM governanca.subdominio_informacao "
+                     "WHERE id_subdominio_informacao=%s)"); params.append(id_subdominio)
+    if tipo:
+        where.append("a.cod_tipo_ativo=%s"); params.append(tipo)
     if busca:
-        where.append("(lower(i.nome_iniciativa) LIKE %s OR lower(i.desc_iniciativa) LIKE %s)")
+        where.append("(lower(a.nome_ativo) LIKE %s OR lower(a.desc_ativo) LIKE %s)")
         b = f"%{busca.lower()}%"; params += [b, b]
     sql = f"""
-        SELECT i.id_iniciativa_aisn, i.nome_iniciativa, i.desc_iniciativa,
-               s.id_subdominio_informacao, s.nome_subdominio,
-               d.id_dominio_informacao, d.nome_dominio,
+        SELECT a.id_ativo_aisn, a.cod_tipo_ativo, a.id_referencia, a.nome_ativo, a.desc_ativo,
+               a.nome_dominio, a.nome_subdominio, a.nome_catalogo, a.nome_schema, a.nome_tabela,
+               g.nome_grupo,
                (SELECT string_agg(DISTINCT u.nome_completo, ', ')
-                  FROM governanca.iniciativa_proprietario p
+                  FROM governanca.ativo_proprietario p
                   JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
-                 WHERE p.id_iniciativa_aisn=i.id_iniciativa_aisn AND p.bol_atual=true) AS owners,
-               (SELECT count(*) FROM governanca.tabela_aisn t
-                  JOIN governanca.iniciativa_camada_ambiente ica
-                       ON ica.id_iniciativa_camada_ambiente=t.id_iniciativa_camada_ambiente
-                 WHERE ica.id_iniciativa_aisn=i.id_iniciativa_aisn AND t.bol_atual=true) AS num_tabelas
-          FROM governanca.iniciativa_aisn i
-          JOIN governanca.subdominio_informacao s ON s.id_subdominio_informacao=i.id_subdominio_informacao
-          JOIN governanca.dominio_informacao d ON d.id_dominio_informacao=s.id_dominio_informacao
+                 WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true) AS owners
+          FROM governanca.ativo_aisn a
+          LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
          WHERE {' AND '.join(where)}
-         ORDER BY d.nome_dominio, s.nome_subdominio, i.nome_iniciativa
+         ORDER BY CASE a.cod_tipo_ativo WHEN 'DOMINIO' THEN 0 WHEN 'SUBDOMINIO' THEN 1
+                       WHEN 'INICIATIVA' THEN 2 ELSE 3 END,
+                  a.nome_dominio, a.nome_subdominio, a.nome_ativo
     """
     return db.query(sql, params)
 
 
-def detalhe_iniciativa(id_iniciativa):
-    ini = db.query_one("""
-        SELECT i.*, s.nome_subdominio, s.id_subdominio_informacao,
-               d.nome_dominio, d.id_dominio_informacao
-          FROM governanca.iniciativa_aisn i
-          JOIN governanca.subdominio_informacao s ON s.id_subdominio_informacao=i.id_subdominio_informacao
-          JOIN governanca.dominio_informacao d ON d.id_dominio_informacao=s.id_dominio_informacao
-         WHERE i.id_iniciativa_aisn=%s""", (id_iniciativa,))
-    if not ini:
+def ativo_por_id(id_ativo):
+    return db.query_one(
+        """SELECT a.*, g.nome_grupo
+             FROM governanca.ativo_aisn a
+             LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
+            WHERE a.id_ativo_aisn=%s""", (id_ativo,))
+
+
+def detalhe_ativo(id_ativo):
+    a = ativo_por_id(id_ativo)
+    if not a:
         return None
-    ini["owners"] = db.query("""
-        SELECT u.id_usuario_aisn, u.nome_completo, u.desc_email, p.bol_principal
-          FROM governanca.iniciativa_proprietario p
-          JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
-         WHERE p.id_iniciativa_aisn=%s AND p.bol_atual=true
-         ORDER BY p.bol_principal DESC, u.nome_completo""", (id_iniciativa,))
-    # Unidades funcionais (camada+ambiente) elegíveis (RN-003: acesso por iniciativa+camada)
-    ini["unidades"] = db.query("""
-        SELECT ica.id_iniciativa_camada_ambiente, ica.bol_elegivel_acesso,
-               ica.nome_catalogo, ica.nome_schema,
-               c.id_camada_aisn, c.nome_camada, a.id_ambiente_aisn, a.nome_ambiente,
-               (SELECT count(*) FROM governanca.tabela_aisn t
-                 WHERE t.id_iniciativa_camada_ambiente=ica.id_iniciativa_camada_ambiente
-                   AND t.bol_atual=true) AS num_tabelas
-          FROM governanca.iniciativa_camada_ambiente ica
-          JOIN governanca.camada_aisn c ON c.id_camada_aisn=ica.id_camada_aisn
-          JOIN governanca.ambiente_aisn a ON a.id_ambiente_aisn=ica.id_ambiente_aisn
-         WHERE ica.id_iniciativa_aisn=%s AND ica.bol_atual=true
-         ORDER BY a.nome_ambiente, c.nome_camada""", (id_iniciativa,))
-    # Tabelas elegíveis (para exibir o escopo do acesso)
-    ini["tabelas"] = db.query("""
-        SELECT t.nome_catalogo, t.nome_schema, t.nome_tabela, t.desc_tabela,
-               c.nome_camada, a.nome_ambiente
-          FROM governanca.tabela_aisn t
-          JOIN governanca.iniciativa_camada_ambiente ica
-               ON ica.id_iniciativa_camada_ambiente=t.id_iniciativa_camada_ambiente
-          JOIN governanca.camada_aisn c ON c.id_camada_aisn=ica.id_camada_aisn
-          JOIN governanca.ambiente_aisn a ON a.id_ambiente_aisn=ica.id_ambiente_aisn
-         WHERE ica.id_iniciativa_aisn=%s AND t.bol_atual=true
-         ORDER BY c.nome_camada, t.nome_tabela""", (id_iniciativa,))
-    return ini
+    a["tipo_label"] = TIPO_LABEL.get(a["cod_tipo_ativo"], a["cod_tipo_ativo"])
+    a["owners"] = db.query(
+        """SELECT u.id_usuario_aisn, u.nome_completo, u.desc_email, p.bol_principal
+             FROM governanca.ativo_proprietario p
+             JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
+            WHERE p.id_ativo_aisn=%s AND p.bol_atual=true
+            ORDER BY p.bol_principal DESC, u.nome_completo""", (id_ativo,))
+    # Escopo UC concreto (o que será concedido no grant), resolvido pelo nível
+    objs = objetos_do_ativo(a)
+    for o in objs:
+        o["rotulo"] = rotulo_objeto(o)
+    a["objetos"] = objs
+    return a
 
 
-def contar_iniciativas(**kwargs):
-    return len(listar_iniciativas(**kwargs))
+def contar_ativos(**kwargs):
+    return len(listar_ativos(**kwargs))
