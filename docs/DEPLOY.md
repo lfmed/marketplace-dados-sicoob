@@ -59,12 +59,16 @@ Defina via env ou `app.yaml` (nenhum valor é hardcoded fora de `app/config.py`)
 Um único entrypoint recria tudo (idempotente):
 
 ```bash
-# CLIENTE (produção) — synced tables NATIVAS (exige CREATE CATALOG):
-python -m db.setup --mode native
+# CLIENTE (produção) — synced tables NATIVAS, SEM seed sintético (exige CREATE CATALOG):
+python -m db.setup --mode native --no-seed
 
-# DEV/protótipo — sync controlado Delta->Lakebase (sem CREATE CATALOG):
+# DEV/protótipo — sync controlado Delta->Lakebase + seed sintético (sem CREATE CATALOG):
 python -m db.setup --mode dev
 ```
+
+> **Seed opcional** (`--seed` / `--no-seed`): liga por padrão em `--mode dev` e desliga em
+> `--mode native`. O seed cria a governança **sintética** + schemas UC `mkt_*` de teste;
+> em produção use `--no-seed` para o app consumir a governança e os schemas **reais**.
 
 O que cada passo faz:
 1. Cria schemas Lakebase: `gestao_acesso` (sempre) e, em `dev`, `governanca`.

@@ -1,0 +1,501 @@
+<title>Implantação do Marketplace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef3f2; --surface:#ffffff; --surface-2:#f3f8f6;
+  --ink:#122e2b; --muted:#5b716d; --faint:#7d918d; --line:#dce7e4;
+  --band:#00353e; --band-2:#00262c; --band-ink:#eafaf6; --band-faint:#8fb7b0;
+  --accent:#1f8f78; --accent-2:#2fa890; --accent-soft:#e2f1ec;
+  --amber:#a9701a; --amber-soft:#f7edd8; --amber-line:#e6d09a;
+  --code-bg:#04252b; --code-ink:#dcefe9; --code-comment:#6fa79c; --code-line:#0c343c;
+  --shadow:0 1px 2px rgba(12,40,38,.05), 0 6px 24px -12px rgba(12,40,38,.14);
+  --radius:14px;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --display:"Archivo",var(--sans);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0a1417; --surface:#0f1e20; --surface-2:#13282b;
+    --ink:#e6f1ee; --muted:#9cb2ad; --faint:#7c928d; --line:#1f3a3c;
+    --band:#002b32; --band-2:#001b20; --band-ink:#eafaf6; --band-faint:#84aca5;
+    --accent:#45c2a8; --accent-2:#39b298; --accent-soft:#0f2e2b;
+    --amber:#d9ab5c; --amber-soft:#2a2213; --amber-line:#4a3c1d;
+    --code-bg:#06232a; --code-ink:#dcefe9; --code-comment:#6fa79c; --code-line:#103741;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0a1417; --surface:#0f1e20; --surface-2:#13282b;
+  --ink:#e6f1ee; --muted:#9cb2ad; --faint:#7c928d; --line:#1f3a3c;
+  --band:#002b32; --band-2:#001b20; --band-ink:#eafaf6; --band-faint:#84aca5;
+  --accent:#45c2a8; --accent-2:#39b298; --accent-soft:#0f2e2b;
+  --amber:#d9ab5c; --amber-soft:#2a2213; --amber-line:#4a3c1d;
+  --code-bg:#06232a; --code-ink:#dcefe9; --code-comment:#6fa79c; --code-line:#103741;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px;border-radius:4px}
+
+/* ---------- Header band ---------- */
+.band{background:linear-gradient(155deg,var(--band),var(--band-2));color:var(--band-ink);
+  padding:48px 0 40px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--band-faint);margin:0 0 14px}
+.band h1{font-family:var(--display);font-weight:800;letter-spacing:-.02em;line-height:1.02;
+  font-size:clamp(2.1rem,5vw,3.2rem);margin:0;text-wrap:balance}
+.band .lede{font-size:1.1rem;color:#cfe6e0;max-width:60ch;margin:14px 0 0}
+.metarow{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.metarow .tag{font-family:var(--mono);font-size:12px;letter-spacing:.02em;
+  border:1px solid rgba(143,183,176,.32);color:#d6ece6;padding:5px 11px;border-radius:999px}
+
+/* architecture flow */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin-top:30px}
+.flow .node{flex:1 1 150px;min-width:140px;background:rgba(255,255,255,.045);
+  border:1px solid rgba(143,183,176,.28);border-radius:12px;padding:12px 14px}
+.flow .node .n-k{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--band-faint)}
+.flow .node .n-v{font-family:var(--display);font-weight:600;font-size:.98rem;margin-top:3px;color:#eafaf6}
+.flow .arrow{align-self:center;color:var(--band-faint);font-size:1.1rem;line-height:1}
+@media (max-width:720px){.flow .arrow{transform:rotate(90deg)}}
+
+/* ---------- Layout ---------- */
+.layout{max-width:1120px;margin:0 auto;padding:44px 28px 80px;
+  display:grid;grid-template-columns:232px minmax(0,1fr);gap:52px;align-items:start}
+.toc{position:sticky;top:24px}
+.toc .toc-h{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 12px;padding-left:12px}
+.toc ol{list-style:none;margin:0;padding:0;counter-reset:sec}
+.toc li{margin:1px 0}
+.toc a{display:flex;gap:11px;align-items:baseline;padding:7px 12px;border-radius:8px;
+  color:var(--muted);font-size:.92rem;font-weight:500;border-left:2px solid transparent}
+.toc a:hover{background:var(--surface-2);color:var(--ink);text-decoration:none}
+.toc a .k{font-family:var(--mono);font-size:.78rem;color:var(--faint);min-width:1.1em}
+
+/* ---------- Doc content ---------- */
+.doc{min-width:0}
+.section{margin:0 0 46px;scroll-margin-top:24px}
+.section-head{display:flex;gap:16px;align-items:flex-start;margin:0 0 8px}
+.section-num{font-family:var(--display);font-weight:800;font-size:1.05rem;color:#fff;
+  background:var(--band);min-width:34px;height:34px;border-radius:9px;display:flex;
+  align-items:center;justify-content:center;flex:none;margin-top:3px;letter-spacing:-.02em}
+.section h2{font-family:var(--display);font-weight:700;letter-spacing:-.01em;font-size:1.55rem;
+  margin:0;line-height:1.15;text-wrap:balance}
+.section .sub{color:var(--muted);margin:2px 0 0;font-size:.95rem}
+.doc p{max-width:70ch}
+.doc p.narrow{max-width:66ch}
+.doc strong{font-weight:600}
+.doc h3{font-family:var(--display);font-weight:600;font-size:1.05rem;margin:26px 0 8px}
+.lead{font-size:1.08rem;color:var(--muted);max-width:68ch;margin-top:0}
+
+/* code */
+.code{background:var(--code-bg);border:1px solid var(--code-line);border-radius:12px;
+  margin:16px 0;overflow:hidden;box-shadow:var(--shadow)}
+.code-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--code-line)}
+.code-bar .dot{width:9px;height:9px;border-radius:50%;background:#0c3a44}
+.code-bar .lang{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--code-comment)}
+.code pre{margin:0;padding:16px 18px;overflow-x:auto}
+.code code{font-family:var(--mono);font-size:.85rem;line-height:1.7;color:var(--code-ink);white-space:pre}
+.code .c{color:var(--code-comment)}
+.code .t{color:#7fd3bd}      /* highlighted token / command verb */
+:where(code):not(.code code){font-family:var(--mono);font-size:.86em;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:.08em .38em;color:var(--ink)}
+
+/* checklist table */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--surface);box-shadow:var(--shadow);margin:18px 0}
+table{border-collapse:collapse;width:100%;font-size:.93rem;min-width:560px}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);font-weight:500;background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:none}
+td .what{font-weight:600;color:var(--ink)}
+td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
+.num-c{font-family:var(--mono);color:var(--faint);font-size:.85rem}
+
+/* ownership chips */
+.who{font-family:var(--mono);font-size:11px;letter-spacing:.03em;padding:4px 9px;border-radius:999px;
+  white-space:nowrap;display:inline-block;font-weight:500}
+.who.cli{background:var(--amber-soft);color:var(--amber);border:1px solid var(--amber-line)}
+.who.fe{background:var(--accent-soft);color:var(--accent);border:1px solid transparent}
+.who.auto{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+
+/* callout */
+.callout{display:flex;gap:14px;background:var(--surface);border:1px solid var(--line);
+  border-left:3px solid var(--accent-2);border-radius:12px;padding:16px 18px;margin:18px 0;box-shadow:var(--shadow)}
+.callout.warn{border-left-color:var(--amber);background:var(--amber-soft);border-color:var(--amber-line)}
+.callout .ico{font-family:var(--mono);font-weight:600;flex:none;color:var(--accent);font-size:.95rem}
+.callout.warn .ico{color:var(--amber)}
+.callout .ct{margin:0;font-size:.95rem;max-width:64ch}
+.callout .ct b{font-weight:600}
+
+/* ref chips row */
+.refs{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.ref{font-family:var(--mono);font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+.ref.doc-int{border-style:dashed}
+.ref.ext:hover{border-color:var(--accent-2);color:var(--accent);text-decoration:none}
+.ref .ar{color:var(--accent-2)}
+
+/* env var list */
+.kv{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin:16px 0;background:var(--surface);box-shadow:var(--shadow)}
+.kv .row{display:grid;grid-template-columns:220px 1fr;gap:0;border-bottom:1px solid var(--line)}
+.kv .row:last-child{border-bottom:none}
+.kv .key{font-family:var(--mono);font-size:.82rem;padding:11px 14px;background:var(--surface-2);color:var(--ink);border-right:1px solid var(--line)}
+.kv .val{padding:11px 14px;color:var(--muted);font-size:.92rem}
+.kv .val code{white-space:nowrap}
+@media (max-width:560px){.kv .row{grid-template-columns:1fr}.kv .key{border-right:none;border-bottom:1px solid var(--line)}}
+
+/* footer references */
+.foot{border-top:1px solid var(--line);margin-top:20px;padding-top:26px;
+  display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.foot h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 12px;font-weight:500}
+.foot ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.foot li{font-size:.93rem}
+.foot .path{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
+.foot .dsc{color:var(--faint);font-size:.85rem}
+.endnote{margin-top:34px;color:var(--faint);font-size:.85rem;font-family:var(--mono)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:26px}
+  .toc{position:static}
+  .toc ol{display:flex;overflow-x:auto;gap:6px;padding-bottom:6px}
+  .toc li{margin:0}
+  .toc a{white-space:nowrap;border-left:none;border:1px solid var(--line)}
+  .foot{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+
+<header class="band">
+  <div class="wrap">
+    <p class="eyebrow">Sicoob · Databricks · Guia de implantação</p>
+    <h1>Marketplace de Dados</h1>
+    <p class="lede">O que o cliente provisiona e o passo a passo para publicar o app de gestão de acesso a dados na workspace de produção — banco, permissões e deploy no Databricks Apps.</p>
+    <div class="metarow">
+      <span class="tag">Flask · Jinja2</span>
+      <span class="tag">Lakebase PG 17</span>
+      <span class="tag">Unity Catalog</span>
+      <span class="tag">Databricks Apps</span>
+      <span class="tag">GRANT / REVOKE reais</span>
+    </div>
+    <div class="flow" aria-label="Fluxo de dados em produção">
+      <div class="node"><div class="n-k">Origem · cliente</div><div class="n-v">Motor de Governança <span style="opacity:.7">(Delta)</span></div></div>
+      <span class="arrow">→</span>
+      <div class="node"><div class="n-k">Reverse ETL</div><div class="n-v">Synced Tables</div></div>
+      <span class="arrow">→</span>
+      <div class="node"><div class="n-k">Estado</div><div class="n-v">Lakebase <span style="opacity:.7">Postgres</span></div></div>
+      <span class="arrow">→</span>
+      <div class="node"><div class="n-k">Aplicação</div><div class="n-v">App · Databricks Apps</div></div>
+      <span class="arrow">→</span>
+      <div class="node"><div class="n-k">Efetivação</div><div class="n-v">Unity Catalog <span style="opacity:.7">grant no schema</span></div></div>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" aria-label="Índice">
+    <p class="toc-h">Nesta página</p>
+    <ol>
+      <li><a href="#s0"><span class="k">0</span> O que provisionar</a></li>
+      <li><a href="#s1"><span class="k">1</span> Pré-requisitos</a></li>
+      <li><a href="#s2"><span class="k">2</span> Configuração</a></li>
+      <li><a href="#s3"><span class="k">3</span> Banco de dados</a></li>
+      <li><a href="#s4"><span class="k">4</span> Permissões do app</a></li>
+      <li><a href="#s5"><span class="k">5</span> Publicar o app</a></li>
+      <li><a href="#s6"><span class="k">6</span> Verificação</a></li>
+      <li><a href="#refs"><span class="k">§</span> Referências</a></li>
+    </ol>
+  </nav>
+
+  <main class="doc">
+    <p class="lead">O código do app e do banco é entregue pronto, idempotente e parametrizado — nenhum ID fica fixo fora de <code>app/config.py</code>. O trabalho do cliente é <strong>provisionar a infraestrutura</strong> e apontar o app para a governança e os schemas <strong>reais</strong>. Todos os comandos abaixo são reproduzíveis em qualquer workspace.</p>
+
+    <!-- 0 -->
+    <section class="section" id="s0">
+      <div class="section-head">
+        <span class="section-num">0</span>
+        <div><h2>O que o cliente provisiona</h2>
+        <p class="sub">Recursos que precisam existir na workspace antes de publicar.</p></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>#</th><th>Recurso</th><th>Para quê</th><th>Responsável</th></tr></thead>
+          <tbody>
+            <tr><td class="num-c">1</td><td><span class="what">Workspace Databricks + Unity Catalog</span><span class="why">Base de tudo; UC habilitado no metastore.</span></td><td>Fundação para catálogo e grants.</td><td><span class="who cli">Cliente</span></td></tr>
+            <tr><td class="num-c">2</td><td><span class="what">SQL Warehouse serverless</span><span class="why">Ativo e acessível pelo SP do app.</span></td><td>Executa o DDL e os <code>GRANT</code>/<code>REVOKE</code> reais.</td><td><span class="who cli">Cliente</span></td></tr>
+            <tr><td class="num-c">3</td><td><span class="what">Projeto Lakebase</span><span class="why">Autoscaling, Postgres 17.</span></td><td>Banco do app: ciclo de vida do acesso + espelho da governança.</td><td><span class="who cli">Cliente</span> <span class="who fe">FE</span></td></tr>
+            <tr><td class="num-c">4</td><td><span class="what">Catálogo UC + schemas reais</span><span class="why">Os dados por iniciativa/camada já existem.</span></td><td>São os <strong>alvos</strong> do grant (<code>SELECT</code>/<code>MODIFY</code> no schema).</td><td><span class="who cli">Cliente</span></td></tr>
+            <tr><td class="num-c">5</td><td><span class="what">Service Principal do app</span><span class="why">Identidade sob a qual o app roda.</span></td><td><code>MANAGE</code> no catálogo/schemas, <code>CAN_USE</code> no warehouse, role no Lakebase.</td><td><span class="who cli">Cliente concede</span></td></tr>
+            <tr><td class="num-c">6</td><td><span class="what">Base de governança (Motor)</span><span class="why">Domínios, iniciativas, camadas, owners, hierarquia, grupos — em Delta.</span></td><td>É o que o app cataloga e usa para validar e rotear aprovações.</td><td><span class="who cli">Cliente · Motor</span></td></tr>
+            <tr><td class="num-c">7</td><td><span class="what">Account groups no UC</span><span class="why">Só se usar acesso por grupo exploratório.</span></td><td>Grant a grupo exige grupo <em>de conta</em> (não workspace-local).</td><td><span class="who cli">Cliente</span></td></tr>
+            <tr><td class="num-c">8</td><td><span class="what">SSO na workspace</span><span class="why">Identidade propagada ao app.</span></td><td>Usuário logado é identificado pelo e-mail (<code>X-Forwarded-Email</code>).</td><td><span class="who cli">Cliente</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <span class="ico">dev → prod</span>
+        <p class="ct"><b>A diferença central.</b> Em <b>dev</b> nós geramos dados <b>sintéticos</b> (governança fake + schemas UC <code>mkt_*</code> de teste) só para validar o grant real ponta a ponta. Em <b>produção não se semeia nada</b>: a governança vem do <b>Motor de Governança</b> do cliente (item 6) e os alvos de grant são os <b>schemas reais</b> (item 4). O app é o mesmo — muda só a origem dos dados (parametrizada) e o modo de sync.</p>
+      </div>
+      <div class="refs">
+        <span class="ref doc-int">docs/DEPLOY.md · §0</span>
+        <span class="ref doc-int">docs/DECISIONS.md · D-007 / D-008 / D-009</span>
+        <span class="ref doc-int">docs/01-modelo-dados.md</span>
+      </div>
+    </section>
+
+    <!-- 1 -->
+    <section class="section" id="s1">
+      <div class="section-head">
+        <span class="section-num">1</span>
+        <div><h2>Pré-requisitos</h2>
+        <p class="sub">CLI autenticado e o projeto Lakebase disponível.</p></div>
+      </div>
+      <p class="narrow">Autentique o Databricks CLI na workspace-alvo e garanta o projeto Lakebase. Um SQL Warehouse serverless precisa estar ativo (item 2 do checklist).</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
+<pre><code><span class="c"># CLI autenticado na workspace de produção do cliente</span>
+databricks auth login --host https://&lt;workspace&gt;.cloud.databricks.com
+
+<span class="c"># Projeto Lakebase (autoscaling, PG 17) — se ainda não existir</span>
+databricks postgres create-project marketplace-dados \
+  --json '{"spec":{"display_name":"Marketplace Dados Sicoob","pg_version":"17"}}'</code></pre>
+      </div>
+      <div class="callout warn">
+        <span class="ico">requer</span>
+        <p class="ct">Para as <b>synced tables nativas</b> (modo <code>native</code>, passo 3), o executor precisa de <b><code>CREATE CATALOG</code> no metastore</b>. Para conceder/revogar acessos, o SP do app precisa de <code>USE CATALOG</code> + <code>MANAGE</code> nos schemas alvo (passo 4).</p>
+      </div>
+      <div class="refs">
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/compute/sql-warehouse/" target="_blank" rel="noopener">SQL Warehouses <span class="ar">↗</span></a>
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/oltp/" target="_blank" rel="noopener">Lakebase <span class="ar">↗</span></a>
+        <span class="ref doc-int">docs/DEPLOY.md · §1</span>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="section" id="s2">
+      <div class="section-head">
+        <span class="section-num">2</span>
+        <div><h2>Configuração</h2>
+        <p class="sub">Parâmetros por ambiente — via <code>app.yaml</code> ou variáveis de ambiente.</p></div>
+      </div>
+      <p class="narrow">Nenhum valor é fixo no código fora de <code>app/config.py</code>. Em produção, prefira <code>valueFrom</code> no <code>app.yaml</code> para IDs de recursos e um <em>secret</em> para a chave da sessão.</p>
+      <div class="kv">
+        <div class="row"><div class="key">UC_CATALOG</div><div class="val">Catálogo UC onde estão os schemas dos dados. Ex.: <code>catalogo_producao</code></div></div>
+        <div class="row"><div class="key">DATABRICKS_WAREHOUSE_ID</div><div class="val">Warehouse para DDL/GRANT/REVOKE.</div></div>
+        <div class="row"><div class="key">LAKEBASE_ENDPOINT</div><div class="val"><code>projects/marketplace-dados/branches/production/endpoints/primary</code></div></div>
+        <div class="row"><div class="key">GRANT_EXECUTE_REAL</div><div class="val">Executa GRANT/REVOKE reais no UC. <code>true</code></div></div>
+        <div class="row"><div class="key">APP_ENABLE_PROXY</div><div class="val">Seletor "atuar como" (demo). Produção: <code>false</code></div></div>
+      </div>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">yaml · app.yaml</span></div>
+<pre><code>command: ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
+env:
+  - name: UC_CATALOG
+    value: "&lt;catalogo_uc_do_cliente&gt;"
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "&lt;warehouse_id&gt;"
+  - name: LAKEBASE_ENDPOINT
+    value: "projects/marketplace-dados/branches/production/endpoints/primary"
+  - name: GRANT_EXECUTE_REAL
+    value: "true"
+  - name: APP_ENABLE_PROXY
+    value: "false"        <span class="c"># produção: sem "atuar como"</span></code></pre>
+      </div>
+      <div class="refs">
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/app-runtime" target="_blank" rel="noopener">Referência do app.yaml <span class="ar">↗</span></a>
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources" target="_blank" rel="noopener">Recursos da App <span class="ar">↗</span></a>
+        <span class="ref doc-int">app/config.py</span>
+        <span class="ref doc-int">docs/DEPLOY.md · §2</span>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="section" id="s3">
+      <div class="section-head">
+        <span class="section-num">3</span>
+        <div><h2>Banco de dados</h2>
+        <p class="sub">Um único entrypoint idempotente provisiona tudo.</p></div>
+      </div>
+      <p class="narrow">O comando cria o schema <code>gestao_acesso</code> no Lakebase (ciclo de vida do acesso) e popula a governança. Em produção use <code>--no-seed</code>: nada sintético é criado e o app passa a consumir a governança e os schemas <strong>reais</strong> do cliente.</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
+<pre><code><span class="c"># PRODUÇÃO — synced tables nativas, SEM seed sintético</span>
+python -m db.setup --mode native --no-seed
+
+<span class="c"># DEV / demo — sync controlado Delta→Lakebase + seed sintético</span>
+python -m db.setup --mode dev</code></pre>
+      </div>
+      <h3>O que cada passo faz</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Passo</th><th>Ação</th><th>Produção (<code>--no-seed</code>)</th></tr></thead>
+          <tbody>
+            <tr><td class="num-c">1</td><td>Cria schemas Lakebase (<code>gestao_acesso</code>; <code>governanca</code> só em dev).</td><td>Sempre</td></tr>
+            <tr><td class="num-c">2</td><td>Cria governança sintética em Delta + seed.</td><td><span class="who auto">Pulado</span></td></tr>
+            <tr><td class="num-c">3</td><td>Cria alvos de GRANT sintéticos (grupos + schemas <code>mkt_*</code>).</td><td><span class="who auto">Pulado</span></td></tr>
+            <tr><td class="num-c">4</td><td>Popula <code>governanca</code> no Lakebase (synced tables nativas a partir do Delta do Motor).</td><td>Sempre</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <span class="ico">--seed / --no-seed</span>
+        <p class="ct"><b>O seed é opcional.</b> Liga por padrão em <code>--mode dev</code> e desliga em <code>--mode native</code>. Aponte as synced tables (<code>db/native_sync_setup.py</code>) para as tabelas Delta reais mantidas pelo Motor de Governança, no lugar do schema sintético <code>marketplace_governanca</code>.</p>
+      </div>
+      <div class="refs">
+        <span class="ref doc-int">db/setup.py</span>
+        <span class="ref doc-int">db/native_sync_setup.py</span>
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/oltp/" target="_blank" rel="noopener">Synced tables (reverse ETL) <span class="ar">↗</span></a>
+        <span class="ref doc-int">docs/DEPLOY.md · §3</span>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="section" id="s4">
+      <div class="section-head">
+        <span class="section-num">4</span>
+        <div><h2>Permissões do app (service principal)</h2>
+        <p class="sub">O app efetiva o acesso agindo como o SP — que precisa poder conceder.</p></div>
+      </div>
+      <p class="narrow">O script <code>scripts/grant_app_sp.py &lt;sp_client_id&gt;</code> aplica o lado Unity Catalog e o warehouse. Abaixo, os comandos equivalentes explícitos.</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">sql · Unity Catalog</span></div>
+<pre><code><span class="c">-- MANAGE no catálogo é necessário para o SP conceder USE CATALOG aos beneficiários</span>
+GRANT USE CATALOG, MANAGE ON CATALOG &lt;UC_CATALOG&gt; TO `&lt;app-sp-client-id&gt;`;
+GRANT USE SCHEMA, MANAGE ON SCHEMA &lt;UC_CATALOG&gt;.&lt;schema_real&gt; TO `&lt;app-sp-client-id&gt;`;</code></pre>
+      </div>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash · warehouse + role Lakebase</span></div>
+<pre><code><span class="c"># Warehouse: CAN_USE para o SP</span>
+databricks warehouses set-permissions &lt;wh&gt; --json '{"access_control_list":[
+  {"service_principal_name":"&lt;sp-client-id&gt;","permission_level":"CAN_USE"}]}'
+
+<span class="c"># Lakebase: cria um role Postgres para o SP</span>
+databricks postgres create-role projects/marketplace-dados/branches/production \
+  --role-id app-marketplace \
+  --json '{"spec":{"identity_type":"SERVICE_PRINCIPAL",
+                   "auth_method":"LAKEBASE_OAUTH_V1",
+                   "postgres_role":"&lt;sp-client-id&gt;"}}'</code></pre>
+      </div>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">sql · Postgres (como owner do projeto)</span></div>
+<pre><code>GRANT CONNECT ON DATABASE databricks_postgres TO "&lt;sp-client-id&gt;";
+GRANT USAGE ON SCHEMA governanca TO "&lt;sp-client-id&gt;";
+GRANT SELECT ON ALL TABLES IN SCHEMA governanca TO "&lt;sp-client-id&gt;";
+GRANT USAGE ON SCHEMA gestao_acesso TO "&lt;sp-client-id&gt;";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA gestao_acesso TO "&lt;sp-client-id&gt;";
+ALTER DEFAULT PRIVILEGES IN SCHEMA gestao_acesso
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "&lt;sp-client-id&gt;";</code></pre>
+      </div>
+      <div class="callout warn">
+        <span class="ico">grupos</span>
+        <p class="ct">Grants a grupo exigem <b>account groups</b> no Unity Catalog (D-009). Grupos criados via SCIM que são workspace-local resultam em <code>ERRO_EFETIVACAO</code> (tratável/reprocessável). Em produção, use grupos de conta reais.</p>
+      </div>
+      <div class="refs">
+        <span class="ref doc-int">scripts/grant_app_sp.py</span>
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/data-governance/unity-catalog/" target="_blank" rel="noopener">Privilégios do Unity Catalog <span class="ar">↗</span></a>
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth" target="_blank" rel="noopener">Autorização da App <span class="ar">↗</span></a>
+        <span class="ref doc-int">docs/DEPLOY.md · §4</span>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class="section" id="s5">
+      <div class="section-head">
+        <span class="section-num">5</span>
+        <div><h2>Publicar o app</h2>
+        <p class="sub">Databricks Apps — criar, sincronizar, publicar.</p></div>
+      </div>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
+<pre><code>databricks apps create marketplace-dados
+
+databricks sync . /Workspace/Users/&lt;voce&gt;/marketplace-dados
+
+databricks apps deploy marketplace-dados \
+  --source-code-path /Workspace/Users/&lt;voce&gt;/marketplace-dados</code></pre>
+      </div>
+      <p class="narrow">Runtime: <code>gunicorn -c gunicorn.conf.py app:app</code> (definido no <code>app.yaml</code>). O app faz <em>bind</em> na porta <code>DATABRICKS_APP_PORT</code> — nunca 8080. Configure <code>FLASK_SECRET_KEY</code> como <em>secret</em>/recurso da app.</p>
+      <div class="refs">
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/" target="_blank" rel="noopener">Databricks Apps <span class="ar">↗</span></a>
+        <a class="ref ext" href="https://apps-cookbook.dev/" target="_blank" rel="noopener">Apps Cookbook <span class="ar">↗</span></a>
+        <span class="ref doc-int">app.yaml · gunicorn.conf.py</span>
+        <span class="ref doc-int">docs/DEPLOY.md · §5</span>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="section" id="s6">
+      <div class="section-head">
+        <span class="section-num">6</span>
+        <div><h2>Verificação</h2>
+        <p class="sub">Prove o fluxo ponta a ponta com um grant real.</p></div>
+      </div>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
+<pre><code>curl -s https://&lt;app-url&gt;/health          <span class="c"># -&gt; {"status":"ok"}</span>
+
+<span class="c"># Suite de integração apontando para a workspace</span>
+pytest tests/</code></pre>
+      </div>
+      <p class="narrow">Percorra o fluxo no app — <strong>solicitar → autorizar (gestor) → aprovar (owner) → efetivar</strong> — e confirme a concessão no Catalog Explorer ou por SQL:</p>
+      <div class="code">
+        <div class="code-bar"><span class="dot"></span><span class="lang">sql</span></div>
+<pre><code>SHOW GRANTS ON SCHEMA &lt;UC_CATALOG&gt;.&lt;schema_real&gt;;</code></pre>
+      </div>
+      <div class="callout">
+        <span class="ico">esperado</span>
+        <p class="ct">Após a efetivação, o beneficiário aparece com <code>SELECT</code> (e <code>USE SCHEMA</code>) no schema; após a revogação pelo owner, a linha some. Todo o ciclo é registrado na trilha de auditoria do app (RF-081..088).</p>
+      </div>
+      <div class="refs">
+        <span class="ref doc-int">tests/</span>
+        <span class="ref doc-int">docs/DEPLOY.md · §6</span>
+      </div>
+    </section>
+
+    <!-- refs -->
+    <section class="section" id="refs">
+      <div class="section-head">
+        <span class="section-num">§</span>
+        <div><h2>Referências</h2>
+        <p class="sub">No repositório do projeto e na documentação Databricks.</p></div>
+      </div>
+      <div class="foot">
+        <div>
+          <h4>Neste repositório</h4>
+          <ul>
+            <li><span class="path">docs/DEPLOY.md</span><br><span class="dsc">Runbook completo de deploy (dev e cliente).</span></li>
+            <li><span class="path">docs/DECISIONS.md</span><br><span class="dsc">Decisões de arquitetura (D-001..D-012).</span></li>
+            <li><span class="path">docs/01-modelo-dados.md</span><br><span class="dsc">Modelo de dados de governança + gestão de acesso.</span></li>
+            <li><span class="path">db/setup.py</span><br><span class="dsc">Provisionamento idempotente (<code>--mode</code>, <code>--seed</code>).</span></li>
+            <li><span class="path">scripts/grant_app_sp.py</span><br><span class="dsc">Concede as permissões do SP do app.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Documentação Databricks</h4>
+          <ul>
+            <li><a href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/" target="_blank" rel="noopener">Databricks Apps ↗</a></li>
+            <li><a href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth" target="_blank" rel="noopener">Apps · Autorização ↗</a></li>
+            <li><a href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources" target="_blank" rel="noopener">Apps · Recursos ↗</a></li>
+            <li><a href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/app-runtime" target="_blank" rel="noopener">Apps · app.yaml ↗</a></li>
+            <li><a href="https://docs.databricks.com/aws/en/data-governance/unity-catalog/" target="_blank" rel="noopener">Unity Catalog ↗</a></li>
+            <li><a href="https://docs.databricks.com/aws/en/compute/sql-warehouse/" target="_blank" rel="noopener">SQL Warehouses ↗</a></li>
+            <li><a href="https://docs.databricks.com/aws/en/oltp/" target="_blank" rel="noopener">Lakebase (Postgres) ↗</a></li>
+            <li><a href="https://apps-cookbook.dev/" target="_blank" rel="noopener">Apps Cookbook ↗</a></li>
+          </ul>
+        </div>
+      </div>
+      <p class="endnote">Marketplace de Dados · Sicoob — guia de implantação. Documento interno.</p>
+    </section>
+  </main>
+</div>
