@@ -32,6 +32,16 @@
         {% if e.nome_usuario_evento %}· {{ e.nome_usuario_evento }}{% endif %}
         <br><small>{{ e.datahora_evento.strftime('%d/%m/%Y %H:%M') if e.datahora_evento }}{% if e.desc_detalhe %} — {{ e.desc_detalhe }}{% endif %}</small></li>
     {% endfor %}
+    {# Etapa pendente (próxima ação) — mostra o responsável, como no passo do gestor #}
+    {% if s.cod_status_solicitacao == S.S_PENDENTE_AUTORIZACAO %}
+    <li class="pending"><b>Aguardando autorização do gestor</b>
+        {% if s.nome_autorizador_previsto %}· {{ s.nome_autorizador_previsto }}{% endif %}
+        <br><small>etapa pendente</small></li>
+    {% elif s.cod_status_solicitacao == S.S_AUTORIZADA %}
+    <li class="pending"><b>Aguardando aprovação do owner</b>
+        {% if s.owners %}· {{ s.owners|map(attribute='nome_completo')|join(', ') }}{% endif %}
+        <br><small>etapa pendente</small></li>
+    {% endif %}
   </ul>
 </div>
 {% endblock %}

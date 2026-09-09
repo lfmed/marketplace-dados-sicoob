@@ -241,6 +241,14 @@ def detalhe(id_solicitacao):
              JOIN governanca.camada_aisn c ON c.id_camada_aisn=ica.id_camada_aisn
             WHERE sc.id_solicitacao_acesso=%s ORDER BY c.nome_camada""",
         (id_solicitacao,))
+    # Owners da iniciativa (para exibir a etapa pendente de aprovação do owner no histórico)
+    s["owners"] = db.query(
+        """SELECT u.nome_completo, p.bol_principal
+             FROM governanca.iniciativa_proprietario p
+             JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
+            WHERE p.id_iniciativa_aisn=%s AND p.bol_atual=true
+            ORDER BY p.bol_principal DESC, u.nome_completo""",
+        (s["id_iniciativa_aisn"],))
     s["eventos"] = audit_service.eventos_da_solicitacao(id_solicitacao)
     return s
 
