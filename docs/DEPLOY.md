@@ -3,6 +3,32 @@
 Guia para provisionar o banco e publicar o app em **qualquer workspace** (dev ou cliente).
 Todo o código de banco é reproduzível e parametrizado (ver `app/config.py`).
 
+## 0. O que o CLIENTE provisiona (checklist de infra)
+
+O código (app Flask + banco) é entregue pronto, idempotente e parametrizado. Do lado do
+cliente é preciso ter os recursos abaixo **antes** de publicar:
+
+| # | Recurso | Para quê | Quem cria |
+|---|---|---|---|
+| 1 | **Workspace Databricks** com **Unity Catalog** habilitado | base de tudo | cliente |
+| 2 | **SQL Warehouse serverless** (ativo) | executa o DDL e os `GRANT/REVOKE` reais | cliente |
+| 3 | **Projeto Lakebase** (autoscaling, PG 17) | banco transacional do app: ciclo de vida do acesso (`gestao_acesso`) + espelho da governança (`governanca`) | cliente (ou nós, com acesso) |
+| 4 | **Catálogo UC de destino** já existente + os **schemas reais** que guardam os dados por iniciativa/camada | são os **alvos** do grant (o app concede `SELECT`/`MODIFY` neles) | cliente — os dados já existem |
+| 5 | **Service Principal do app** com `USE CATALOG`+`MANAGE` no catálogo, `MANAGE` nos schemas alvo, `CAN_USE` no warehouse e um role no Lakebase | o app **efetiva o acesso** agindo como esse SP | cliente concede (script pronto — §4) |
+| 6 | **Base de governança** (domínios, subdomínios, **iniciativas**, camadas, ambientes, **owners**, usuários, **hierarquia** gestor/superior, grupos) em **tabelas Delta**, mantida pelo **Motor de Governança** do cliente | é o que o app cataloga e usa p/ validar elegibilidade e rotear as aprovações | cliente (Motor de Governança) |
+| 7 | **Grupos de conta** (account groups) no UC — se for usar acesso por grupo exploratório | grant a grupo exige account group (D-009) | cliente |
+| 8 | **SSO** na workspace | identidade do usuário logado no app (via header `X-Forwarded-Email`) | cliente |
+
+> **Dev vs. Produção — a diferença central:** em **dev** nós geramos dados **sintéticos**
+> (governança fake + schemas UC `mkt_*` fake) só para testar o grant real ponta a ponta.
+> Em **produção NÃO se semeia nada**: a base de governança vem do **Motor de Governança**
+> do cliente (item 6) e os alvos de grant são os **schemas reais** do cliente (item 4). O
+> app é o mesmo; muda a **origem dos dados** (parametrizada) e o modo de sync (§3, `native`).
+
+**Fluxo de dados em produção:** Motor de Governança (Delta) → *synced tables* → Lakebase
+`governanca` (leitura) · o app grava o ciclo de vida em Lakebase `gestao_acesso` · e
+**efetiva o acesso no Unity Catalog** (grant no schema real) via o SP do app.
+
 ## 1. Pré-requisitos
 - Databricks CLI autenticado na workspace-alvo (`databricks auth login`).
 - Python 3.11+, `pip install -r requirements.txt`.
@@ -42,9 +68,12 @@ python -m db.setup --mode dev
 
 O que cada passo faz:
 1. Cria schemas Lakebase: `gestao_acesso` (sempre) e, em `dev`, `governanca`.
-2. Cria as **tabelas Delta de governança** (`{UC_CATALOG}.marketplace_governanca`) + seed.
-3. Cria **alvos reais de GRANT no UC** (grupos + 1 schema por iniciativa+camada).
-4. Popula `governanca` no Lakebase: `native` = synced tables; `dev` = sync controlado.
+2. **[dev]** Cria as tabelas Delta de governança sintéticas (`{UC_CATALOG}.marketplace_governanca`) + seed.
+   **[prod]** Pulado — a governança vem do Motor de Governança do cliente.
+3. **[dev]** Cria alvos de GRANT sintéticos no UC (grupos + 1 schema `mkt_*` por iniciativa+camada).
+   **[prod]** Pulado — os alvos são os **schemas reais** do cliente já existentes.
+4. Popula `governanca` no Lakebase: `native` (prod) = synced tables a partir do Delta do
+   Motor; `dev` = sync controlado a partir do schema sintético.
 
 > **Dados reais no cliente:** o seed é sintético (demo). Para produção, aponte as synced
 > tables (`db/native_sync_setup.py`) para as tabelas Delta reais mantidas pelo **Motor de
