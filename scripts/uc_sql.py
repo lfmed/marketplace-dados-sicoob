@@ -8,7 +8,7 @@ import sys
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.sql import StatementState
 
-DEFAULT_WAREHOUSE = "b8e52268d9828bdd"  # Serverless Starter Warehouse (RUNNING)
+DEFAULT_WAREHOUSE = os.environ.get("DATABRICKS_WAREHOUSE_ID", "b8e52268d9828bdd")  # parametrizável por env
 PROFILE = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
 
 
