@@ -16,3 +16,8 @@ demo/clips/
 *.pdf
 *.drawio.html
 /Screenshot*.png
+
+# Screenshots e frames de demo — mantidos só localmente, fora do git
+docs/*.png
+demo/frames/
+docs/PROMPT_REGISTRY.md
