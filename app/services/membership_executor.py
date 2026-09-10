@@ -7,9 +7,14 @@ O acesso é concedido incluindo o beneficiário no GRUPO DO ATIVO
 Revogar = remover essa associação. Idempotente (RN-041).
 
 Na CONCESSÃO também garante (best-effort) o GRANT do grupo do ativo nos objetos UC
-(ver grant_executor.provisionar_ativo). A propagação efetiva do acesso exige account
-groups (D-009); em dev os grupos são workspace-local — a associação é real e verificável
-via SCIM, mas o efeito no UC depende do grupo do ativo estar concedido nos objetos.
+(ver grant_executor.provisionar_ativo).
+
+ESCOPO DOS GRUPOS (config.GROUPS_SCOPE): em PRODUÇÃO os grupos são de CONTA
+(`account`) — geridos via AccountClient e principais válidos p/ GRANT no UC. Em DEV,
+sem acesso à conta, são workspace-local (`workspace`). O cliente SCIM é resolvido por
+`db.get_groups_client()`, que expõe a mesma interface nos dois escopos, então este
+executor é agnóstico. Em produção, garanta que o SP do app tenha direito de gerente
+dos grupos de conta (ou admin de conta).
 """
 from app.config import config
 from app import db
@@ -96,9 +101,9 @@ def executar(operacao, acesso):
     if not config.GRANT_EXECUTE_REAL:
         return True, "\n".join(linhas) + "\n-- [SIMULADO: GRANT_EXECUTE_REAL=false]", None
 
-    from app.db import get_client
+    from app.db import get_groups_client
     from databricks.sdk.service import iam
-    w = get_client()
+    w = get_groups_client()  # AccountClient (produção) ou WorkspaceClient (dev)
     try:
         gid = _ensure_group(w, nome_grupo_ativo)
         if operacao == C.OP_CONCESSAO:

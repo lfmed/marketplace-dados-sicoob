@@ -33,6 +33,15 @@ class Config:
     # --- SQL Warehouse usado para executar DDL/GRANT/REVOKE no UC ---
     WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "b8e52268d9828bdd")
 
+    # --- Escopo dos grupos (concessão por associação) ---
+    # 'account' = grupos de CONTA (produção/cliente): gerenciados via AccountClient e são
+    #             principais válidos p/ GRANT no UC. Exige DATABRICKS_ACCOUNT_ID + SP com
+    #             direito de gerente de grupo (ou admin de conta).
+    # 'workspace' = grupos workspace-local (dev sem acesso à conta). Default.
+    GROUPS_SCOPE = os.getenv("GROUPS_SCOPE", "workspace").strip().lower()
+    DATABRICKS_ACCOUNT_ID = os.getenv("DATABRICKS_ACCOUNT_ID", "")
+    DATABRICKS_ACCOUNT_HOST = os.getenv("DATABRICKS_ACCOUNT_HOST", "https://accounts.cloud.databricks.com")
+
     # --- Lakebase (Postgres) — base operacional do App ---
     LAKEBASE_ENDPOINT = os.getenv(
         "LAKEBASE_ENDPOINT",

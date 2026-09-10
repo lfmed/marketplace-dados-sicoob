@@ -54,6 +54,19 @@ Defina via env ou `app.yaml` (nenhum valor é hardcoded fora de `app/config.py`)
 | `LAKEBASE_DBNAME` | database Postgres | `databricks_postgres` |
 | `GRANT_EXECUTE_REAL` | executar GRANT/REVOKE reais | `true` |
 | `APP_ENABLE_PROXY` | seletor "atuar como" (demo) | `true` (prod: `false`) |
+| `GROUPS_SCOPE` | escopo dos grupos: `account` (produção) ou `workspace` (dev) | `workspace` (prod: `account`) |
+| `DATABRICKS_ACCOUNT_ID` | id da conta (só quando `GROUPS_SCOPE=account`) | — |
+| `DATABRICKS_ACCOUNT_HOST` | host do console de conta | `https://accounts.cloud.databricks.com` |
+
+> **Concessão por associação a grupo (importante).** O acesso é concedido incluindo o
+> beneficiário no **grupo do ativo** (`ativo_aisn.id_grupo_acesso`), que detém o `GRANT` no
+> UC. Em **produção** esses grupos são **grupos de CONTA** (`GROUPS_SCOPE=account`): são
+> principais válidos no UC e o app os gerencia via AccountClient — o **service principal do
+> app precisa de direito de _gerente de grupo_ desses grupos de conta** (ou ser admin de
+> conta), além de `DATABRICKS_ACCOUNT_ID`. Em **dev sem acesso à conta** (`GROUPS_SCOPE=
+> workspace`) usam-se grupos workspace-local: a associação funciona (o SP precisa poder
+> gerenciar grupos do workspace — ex.: estar no grupo `admins`), mas o `GRANT` do grupo nos
+> objetos **não propaga** (grupo workspace-local não é principal do UC — limitação D-009).
 
 ## 3. Provisionar o banco (reproduzível)
 Um único entrypoint recria tudo (idempotente):

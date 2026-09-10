@@ -35,6 +35,34 @@ def get_client() -> WorkspaceClient:
     return _client
 
 
+_account_client = None
+
+
+def get_account_client():
+    """AccountClient para gerenciar GRUPOS DE CONTA (produção). Reusa a auth do SP/perfil."""
+    global _account_client
+    if _account_client is None:
+        from databricks.sdk import AccountClient
+        try:
+            _account_client = AccountClient(host=config.DATABRICKS_ACCOUNT_HOST,
+                                            account_id=config.DATABRICKS_ACCOUNT_ID,
+                                            profile=config.DATABRICKS_PROFILE)
+        except Exception:
+            _account_client = AccountClient(host=config.DATABRICKS_ACCOUNT_HOST,
+                                            account_id=config.DATABRICKS_ACCOUNT_ID)
+    return _account_client
+
+
+def get_groups_client():
+    """Cliente SCIM para gerenciar grupos (associação de membros), conforme GROUPS_SCOPE:
+    'account' -> AccountClient (grupos de conta, produção); 'workspace' -> WorkspaceClient
+    (grupos workspace-local, dev). Ambos expõem a MESMA interface .groups/.users/
+    .service_principals, então o membership_executor é agnóstico ao escopo."""
+    if config.GROUPS_SCOPE == "account":
+        return get_account_client()
+    return get_client()
+
+
 def _resolve(host: str) -> str:
     if _host_cache["addr"] and _host_cache["host"] == host:
         return _host_cache["addr"]

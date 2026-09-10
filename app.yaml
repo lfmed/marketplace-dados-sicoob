@@ -19,6 +19,13 @@ env:
   # Efetivação real de acessos (GRANT/REVOKE reais no UC).
   - name: GRANT_EXECUTE_REAL
     value: "true"
+  # Escopo dos grupos da concessão por associação. Dev sem conta: "workspace".
+  # PRODUÇÃO/cliente: "account" (grupos de conta = principais do UC) + DATABRICKS_ACCOUNT_ID,
+  # e o SP do app precisa de direito de GERENTE desses grupos de conta (ou admin de conta).
+  - name: GROUPS_SCOPE
+    value: "workspace"
+  # - name: DATABRICKS_ACCOUNT_ID
+  #   value: "<account-id-do-cliente>"
   # Proxy "atuar como" (demo). Em produção com SSO real, defina "false".
   - name: APP_ENABLE_PROXY
     value: "true"
