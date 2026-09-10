@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arquitetura do App — Rotas e Dados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef3f2; --surface:#ffffff; --surface-2:#f3f8f6;
+  --ink:#122e2b; --muted:#5b716d; --faint:#7d918d; --line:#dce7e4;
+  --band:#00353e; --band-2:#00262c; --band-ink:#eafaf6; --band-faint:#8fb7b0;
+  --accent:#1f8f78; --accent-2:#2fa890; --accent-soft:#e2f1ec;
+  --amber:#a9701a; --amber-soft:#f7edd8; --amber-line:#e6d09a;
+  --code-bg:#04252b; --code-ink:#dcefe9; --code-comment:#6fa79c; --code-line:#0c343c;
+  --shadow:0 1px 2px rgba(12,40,38,.05), 0 6px 24px -12px rgba(12,40,38,.14);
+  --radius:14px;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --display:"Archivo",var(--sans);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0a1417; --surface:#0f1e20; --surface-2:#13282b;
+    --ink:#e6f1ee; --muted:#9cb2ad; --faint:#7c928d; --line:#1f3a3c;
+    --band:#002b32; --band-2:#001b20; --band-ink:#eafaf6; --band-faint:#84aca5;
+    --accent:#45c2a8; --accent-2:#39b298; --accent-soft:#0f2e2b;
+    --amber:#d9ab5c; --amber-soft:#2a2213; --amber-line:#4a3c1d;
+    --code-bg:#06232a; --code-ink:#dcefe9; --code-comment:#6fa79c; --code-line:#103741;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0a1417; --surface:#0f1e20; --surface-2:#13282b;
+  --ink:#e6f1ee; --muted:#9cb2ad; --faint:#7c928d; --line:#1f3a3c;
+  --band:#002b32; --band-2:#001b20; --band-ink:#eafaf6; --band-faint:#84aca5;
+  --accent:#45c2a8; --accent-2:#39b298; --accent-soft:#0f2e2b;
+  --amber:#d9ab5c; --amber-soft:#2a2213; --amber-line:#4a3c1d;
+  --code-bg:#06232a; --code-ink:#dcefe9; --code-comment:#6fa79c; --code-line:#103741;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px;border-radius:4px}
+.band{background:linear-gradient(155deg,var(--band),var(--band-2));color:var(--band-ink);padding:48px 0 40px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--band-faint);margin:0 0 14px}
+.band h1{font-family:var(--display);font-weight:800;letter-spacing:-.02em;line-height:1.02;font-size:clamp(2.1rem,5vw,3.1rem);margin:0;text-wrap:balance}
+.band .lede{font-size:1.1rem;color:#cfe6e0;max-width:64ch;margin:14px 0 0}
+.metarow{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.metarow .tag{font-family:var(--mono);font-size:12px;letter-spacing:.02em;border:1px solid rgba(143,183,176,.32);color:#d6ece6;padding:5px 11px;border-radius:999px}
+.layout{max-width:1120px;margin:0 auto;padding:44px 28px 80px;display:grid;grid-template-columns:236px minmax(0,1fr);gap:52px;align-items:start}
+.toc{position:sticky;top:24px}
+.toc .toc-h{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin:0 0 12px;padding-left:12px}
+.toc ol{list-style:none;margin:0;padding:0}
+.toc li{margin:1px 0}
+.toc a{display:flex;gap:11px;align-items:baseline;padding:7px 12px;border-radius:8px;color:var(--muted);font-size:.92rem;font-weight:500;border-left:2px solid transparent}
+.toc a:hover{background:var(--surface-2);color:var(--ink);text-decoration:none}
+.toc a .k{font-family:var(--mono);font-size:.78rem;color:var(--faint);min-width:1.1em}
+.doc{min-width:0}
+.section{margin:0 0 46px;scroll-margin-top:24px}
+.section-head{display:flex;gap:16px;align-items:flex-start;margin:0 0 8px}
+.section-num{font-family:var(--display);font-weight:800;font-size:1.05rem;color:#fff;background:var(--band);min-width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;margin-top:3px;letter-spacing:-.02em}
+.section h2{font-family:var(--display);font-weight:700;letter-spacing:-.01em;font-size:1.5rem;margin:0;line-height:1.15;text-wrap:balance}
+.section .sub{color:var(--muted);margin:2px 0 0;font-size:.95rem}
+.doc p{max-width:72ch}
+.doc p.narrow{max-width:66ch}
+.doc strong{font-weight:600}
+.doc h3{font-family:var(--display);font-weight:600;font-size:1.05rem;margin:26px 0 8px}
+.arch{overflow-x:auto;margin:20px 0 4px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);padding:22px 20px}
+.arch svg{display:block;width:100%;min-width:820px;height:auto}
+.dg-box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.dg-box.src{fill:var(--surface-2)}
+.dg-box.hero{fill:var(--accent-soft);stroke:var(--accent-2);stroke-width:2}
+.dg-node{fill:var(--band);stroke:none}
+.dg-eyebrow{fill:var(--faint);font-family:var(--mono);font-size:10.5px;letter-spacing:.14em}
+.dg-title{fill:var(--ink);font-family:var(--display);font-weight:600;font-size:14px}
+.dg-sub{fill:var(--muted);font-family:var(--mono);font-size:10.5px}
+.dg-node-t{fill:#eafaf6;font-family:var(--display);font-weight:600;font-size:12.5px}
+.dg-line{stroke:var(--faint);stroke-width:1.6;fill:none}
+.dg-line.accent{stroke:var(--accent-2);stroke-width:2.2}
+.dg-arrowhead{fill:var(--faint)}
+.dg-arrowhead.accent{fill:var(--accent-2)}
+.dg-lbl{fill:var(--muted);font-family:var(--mono);font-size:10px;text-anchor:middle}
+.dg-lbl.on{fill:var(--accent);font-weight:600}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:600px}
+th,td{text-align:left;padding:12px 15px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:500;background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:none}
+td code, th code{font-family:var(--mono)}
+.mth{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.04em;padding:3px 8px;border-radius:6px;white-space:nowrap;display:inline-block}
+.mth.get{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-2)}
+.mth.post{background:var(--amber-soft);color:var(--amber);border:1px solid var(--amber-line)}
+.src-chip{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);white-space:nowrap;display:inline-block;margin:1px 2px 1px 0}
+.src-chip.w{border-color:var(--amber-line);color:var(--amber);background:var(--amber-soft)}
+.src-chip.r{border-color:var(--accent-2);color:var(--accent);background:var(--accent-soft)}
+:where(code):not(pre code){font-family:var(--mono);font-size:.86em;background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:.08em .38em;color:var(--ink)}
+.callout{display:flex;gap:14px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent-2);border-radius:12px;padding:16px 18px;margin:18px 0;box-shadow:var(--shadow)}
+.callout.warn{border-left-color:var(--amber);background:var(--amber-soft);border-color:var(--amber-line)}
+.callout .ico{font-family:var(--mono);font-weight:600;flex:none;color:var(--accent);font-size:.95rem}
+.callout.warn .ico{color:var(--amber)}
+.callout .ct{margin:0;font-size:.94rem;max-width:66ch}
+.legend{list-style:none;counter-reset:l;padding:0;margin:16px 0 0;display:grid;gap:10px}
+.legend li{counter-increment:l;display:flex;gap:12px;align-items:baseline;font-size:.93rem;max-width:76ch}
+.legend li::before{content:counter(l);font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-2);min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;translate:0 2px}
+.endnote{margin-top:34px;color:var(--faint);font-size:.85rem;font-family:var(--mono);border-top:1px solid var(--line);padding-top:20px}
+@media (max-width:900px){.layout{grid-template-columns:1fr;gap:26px}.toc{position:static}.toc ol{display:flex;overflow-x:auto;gap:6px;padding-bottom:6px}.toc li{margin:0}.toc a{white-space:nowrap;border-left:none;border:1px solid var(--line)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="wrap">
+    <p class="eyebrow">Sicoob · Databricks · Documentação técnica</p>
+    <h1>Arquitetura do App — Rotas &amp; Dados</h1>
+    <p class="lede">Quais rotas existem, o que cada uma faz e <strong>de onde o app busca e grava os dados</strong>. O catálogo gira em torno do <strong>ativo</strong>; a concessão é por <strong>associação a grupo</strong>.</p>
+    <div class="metarow">
+      <span class="tag">Flask + Jinja2</span>
+      <span class="tag">Lakebase (Postgres)</span>
+      <span class="tag">Unity Catalog</span>
+      <span class="tag">Grupos SCIM</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" aria-label="Sumário">
+    <p class="toc-h">Nesta página</p>
+    <ol>
+      <li><a href="#camadas"><span class="k">1</span> Camadas</a></li>
+      <li><a href="#fluxo"><span class="k">2</span> Fluxo de dados</a></li>
+      <li><a href="#fontes"><span class="k">3</span> Fontes de dados</a></li>
+      <li><a href="#identidade"><span class="k">4</span> Identidade</a></li>
+      <li><a href="#rotas"><span class="k">5</span> Rotas</a></li>
+      <li><a href="#ativo"><span class="k">6</span> Ativo (driver)</a></li>
+      <li><a href="#concessao"><span class="k">7</span> Concessão</a></li>
+      <li><a href="#servicos"><span class="k">8</span> Serviços</a></li>
+    </ol>
+  </nav>
+
+  <main class="doc">
+    <!-- 1 -->
+    <section class="section" id="camadas">
+      <div class="section-head"><span class="section-num">1</span>
+        <div><h2>Camadas</h2><p class="sub">Rota fina → serviço (regras + SQL) → fontes de dados.</p></div>
+      </div>
+      <p>As <strong>rotas</strong> (<code>app/routes/*</code>) são finas: leem o formulário, resolvem o usuário, chamam um <strong>serviço</strong> e renderizam um template. É nos serviços (<code>app/services/*</code>) que os dados são lidos e gravados, por quatro caminhos:</p>
+      <ul>
+        <li><strong>Lakebase</strong> (<code>app/db.py</code>, psycopg + OAuth 1h): schema <code>governanca</code> (leitura) e <code>gestao_acesso</code> (leitura/escrita).</li>
+        <li><strong>Unity Catalog</strong> (<code>scripts/uc_sql.run_uc_sql</code>, via SQL Warehouse): <code>GRANT/REVOKE</code> do <em>grupo do ativo</em> nos objetos.</li>
+        <li><strong>Grupos SCIM</strong> (<code>app/db.get_groups_client()</code>): associar/desassociar o beneficiário no grupo do ativo — a concessão em si.</li>
+      </ul>
+    </section>
+
+    <!-- 2 -->
+    <section class="section" id="fluxo">
+      <div class="section-head"><span class="section-num">2</span>
+        <div><h2>Fluxo de dados</h2><p class="sub">Da navegação à efetivação por associação a grupo.</p></div>
+      </div>
+      <div class="arch">
+        <svg viewBox="0 0 1000 430" role="img" aria-label="Fluxo: navegador → rotas → serviços → Lakebase, Unity Catalog e grupos SCIM">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" class="dg-arrowhead"/></marker>
+            <marker id="ahA" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" class="dg-arrowhead accent"/></marker>
+          </defs>
+          <!-- pipeline -->
+          <rect class="dg-node" x="16" y="185" width="150" height="58" rx="10"/>
+          <text class="dg-node-t" x="91" y="210" text-anchor="middle">Navegador</text>
+          <text class="dg-node-t" x="91" y="228" text-anchor="middle" style="font-size:10px;fill:#a9d2c9;font-family:var(--mono);font-weight:400">SSO / proxy</text>
+
+          <text class="dg-eyebrow" x="212" y="176">FLASK</text>
+          <rect class="dg-box" x="212" y="186" width="176" height="94" rx="12"/>
+          <text class="dg-title" x="226" y="214">Rotas (blueprints)</text>
+          <text class="dg-sub" x="226" y="236">catalog · requests</text>
+          <text class="dg-sub" x="226" y="253">approvals · accesses · audit</text>
+
+          <text class="dg-eyebrow" x="432" y="176">LÓGICA</text>
+          <rect class="dg-box hero" x="432" y="186" width="176" height="94" rx="12"/>
+          <text class="dg-title" x="446" y="214">Serviços</text>
+          <text class="dg-sub" x="446" y="236">regras de negócio</text>
+          <text class="dg-sub" x="446" y="253">+ SQL / SCIM</text>
+
+          <line class="dg-line" x1="166" y1="214" x2="208" y2="214" marker-end="url(#ah)"/>
+          <line class="dg-line" x1="388" y1="233" x2="428" y2="233" marker-end="url(#ah)"/>
+
+          <!-- fan-out -->
+          <text class="dg-eyebrow" x="700" y="60">DADOS · LAKEBASE</text>
+          <rect class="dg-box src" x="700" y="70" width="284" height="88" rx="12"/>
+          <text class="dg-title" x="716" y="98">Lakebase · Postgres</text>
+          <text class="dg-sub" x="716" y="120">governanca — espelho (lê)</text>
+          <text class="dg-sub" x="716" y="138">gestao_acesso — estado (lê/grava)</text>
+
+          <text class="dg-eyebrow" x="700" y="196">EFETIVAÇÃO · UC</text>
+          <rect class="dg-box" x="700" y="206" width="284" height="70" rx="12"/>
+          <text class="dg-title" x="716" y="234">Unity Catalog (warehouse)</text>
+          <text class="dg-sub" x="716" y="256">GRANT do grupo do ativo nos objetos</text>
+
+          <text class="dg-eyebrow" x="700" y="314">CONCESSÃO · SCIM</text>
+          <rect class="dg-box" x="700" y="324" width="284" height="82" rx="12"/>
+          <text class="dg-title" x="716" y="352">Grupos (account / workspace)</text>
+          <text class="dg-sub" x="716" y="374">associa o beneficiário</text>
+          <text class="dg-sub" x="716" y="392">ao grupo do ativo</text>
+
+          <line class="dg-line" x1="608" y1="220" x2="696" y2="120" marker-end="url(#ah)"/>
+          <text class="dg-lbl" x="648" y="158">lê / grava</text>
+          <line class="dg-line accent" x1="608" y1="233" x2="696" y2="240" marker-end="url(#ahA)"/>
+          <text class="dg-lbl on" x="652" y="228">grant grupo</text>
+          <line class="dg-line accent" x1="608" y1="246" x2="696" y2="360" marker-end="url(#ahA)"/>
+          <text class="dg-lbl on" x="650" y="322">associa</text>
+        </svg>
+      </div>
+      <ol class="legend">
+        <li>O usuário navega o catálogo de <b>ativos</b> e pede acesso; a rota chama o serviço.</li>
+        <li>O serviço lê a governança (espelho) e grava o ciclo de vida em <code>gestao_acesso</code>.</li>
+        <li>Aprovado pelo owner, o <b>worker</b> inclui o beneficiário no <b>grupo do ativo</b> (SCIM) e provisiona o <code>GRANT</code> do grupo nos objetos (UC). Revogar = remover a associação.</li>
+      </ol>
+    </section>
+
+    <!-- 3 -->
+    <section class="section" id="fontes">
+      <div class="section-head"><span class="section-num">3</span>
+        <div><h2>Fontes de dados</h2><p class="sub">Onde o app busca — e o que ele pode gravar.</p></div>
+      </div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Fonte</th><th>Acesso</th><th>Papel</th><th>R/W</th></tr></thead>
+        <tbody>
+          <tr><td><code>governanca.*</code><br><span style="color:var(--faint);font-size:.85rem">16 tabelas</span></td><td><code>app/db.py</code> (Postgres)</td><td>Catálogo/modelo: domínios, subdomínios, iniciativas, camadas, ICAs, tabelas, usuários, hierarquia, grupos, <b>ativos</b> e owners. Espelho do Delta (Motor) via synced tables (prod) / sync controlado (dev).</td><td><span class="src-chip r">só leitura</span></td></tr>
+          <tr><td><code>gestao_acesso.*</code></td><td><code>app/db.py</code> (Postgres)</td><td>Estado operacional: solicitação → autorização → aprovação → acesso → execução técnica → revogação → eventos. Nativo no Lakebase.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
+          <tr><td>Unity Catalog</td><td><code>run_uc_sql</code> (SQL Warehouse)</td><td>Alvo dos <code>GRANT/REVOKE</code> reais — concedidos ao <b>grupo do ativo</b> nos objetos resolvidos (provisionamento).</td><td><span class="src-chip w">escrita (DCL)</span></td></tr>
+          <tr><td>Grupos (SCIM)</td><td><code>get_groups_client()</code><br><span style="color:var(--faint);font-size:.85rem">Account/Workspace</span></td><td>A concessão em si: incluir/remover o beneficiário (usuário ou grupo exploratório) no <b>grupo do ativo</b>.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
+        </tbody>
+      </table></div>
+      <div class="callout"><span class="ico">nota</span><p class="ct"><b><code>governanca</code> é espelho.</b> O app nunca grava nela — vem do Motor do cliente (Delta → synced tables). Só <code>gestao_acesso</code> é transacional. Ver <code>DECISIONS.md</code> D-010/D-011.</p></div>
+    </section>
+
+    <!-- 4 -->
+    <section class="section" id="identidade">
+      <div class="section-head"><span class="section-num">4</span>
+        <div><h2>Identidade</h2><p class="sub"><code>app/identity.py</code> — quem é o usuário corrente.</p></div>
+      </div>
+      <p><code>usuario_atual()</code> resolve por precedência: <strong>(1) proxy</strong> (dev/demo — seletor "atuar como"); <strong>(2) SSO</strong> (produção — header <code>X-Forwarded-Email</code>); <strong>(3) fallback</strong> <code>DEV_FALLBACK_EMAIL</code>. O e-mail é casado em <code>governanca.usuario_aisn</code>. Os papéis (<code>gestor</code>, <code>owner</code>) e os grupos do usuário são injetados em todos os templates por um <code>context_processor</code> em <code>app/__init__.py</code> — <b>gestor</b> = existe em <code>hierarquia_usuario</code>; <b>owner</b> = existe em <code>ativo_proprietario</code>.</p>
+    </section>
+
+    <!-- 5 -->
+    <section class="section" id="rotas">
+      <div class="section-head"><span class="section-num">5</span>
+        <div><h2>Rotas</h2><p class="sub">O que cada rota faz e de onde busca/grava os dados.</p></div>
+      </div>
+      <p class="narrow">Legenda de fontes: <span class="src-chip r">G</span> = <code>governanca.*</code> (leitura) · <span class="src-chip w">A</span> = <code>gestao_acesso.*</code> · <span class="src-chip w">UC</span> = Unity Catalog · <span class="src-chip w">SCIM</span> = grupos.</p>
+
+      <h3><code>main</code> · app/routes/main.py</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mth get">GET</span> <code>/</code></td><td>redireciona p/ <code>/catalogo</code></td><td>—</td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/health</code></td><td>healthcheck <code>{"status":"ok"}</code></td><td>—</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/proxy</code></td><td>troca o usuário atuante (dev)</td><td>sessão</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3><code>catalog</code> · catalog_service</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mth get">GET</span> <code>/catalogo</code></td><td>lista <b>ativos</b> (driver = <code>ativo_aisn</code>); filtros nível/domínio/subdomínio/busca; breadcrumb derivado polimorficamente</td><td><span class="src-chip r">G</span> <code>ativo_aisn</code> + relações + <code>grupo_acesso</code> + <code>ativo_proprietario</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/ativo/&lt;id&gt;</code></td><td>detalhe: owners, grupo, <b>escopo UC resolvido</b> e formulário de solicitação</td><td><span class="src-chip r">G</span> idem + <code>grupo_acesso_membro</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3><code>requests</code> · request_service</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mth post">POST</span> <code>/solicitar</code></td><td>cria solicitação p/ um ativo (nominal/grupo); valida RN-005/007/010/013/014</td><td><span class="src-chip r">G</span> ativo, owners, grupos, hierarquia · <span class="src-chip w">A</span> grava <code>solicitacao_acesso</code> + <code>evento</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/minhas-solicitacoes</code></td><td>solicitações do usuário + status do acesso</td><td><span class="src-chip w">A</span> <code>solicitacao_acesso</code>, <code>acesso</code> · <span class="src-chip r">G</span> ativo</td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/solicitacao/&lt;id&gt;</code></td><td>detalhe + escopo UC + histórico + etapa pendente</td><td><span class="src-chip w">A</span> solicitação, acesso, eventos · <span class="src-chip r">G</span> ativo, owners</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/solicitacao/&lt;id&gt;/cancelar</code></td><td>cancela (RN-011)</td><td><span class="src-chip w">A</span> <code>solicitacao_acesso</code>, <code>evento</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3><code>approvals</code> · approval_service</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mth get">GET</span> <code>/aprovacoes</code></td><td>fila do gestor (hierarquia) + fila do owner (do ativo)</td><td><span class="src-chip w">A</span> solicitação · <span class="src-chip r">G</span> hierarquia, <code>ativo_proprietario</code></td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/aprovacoes/&lt;id&gt;/gestor</code></td><td>autoriza/reprova (RN-013/014)</td><td><span class="src-chip w">A</span> <code>autorizacao_hierarquica</code>, solicitação, evento</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/aprovacoes/&lt;id&gt;/owner</code></td><td>aprova/reprova (RN-006/017); se aprova, <b>cria o acesso</b></td><td><span class="src-chip r">G</span> <code>ativo_proprietario</code> · <span class="src-chip w">A</span> <code>aprovacao_owner</code>, <code>acesso</code>, <code>execucao_tecnica</code> (PENDENTE), evento</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3><code>accesses</code> · access_service</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mth get">GET</span> <code>/meus-acessos</code></td><td>acessos do usuário (nominal + por grupo) + acesso padrão de owner (RN-016/025)</td><td><span class="src-chip w">A</span> <code>acesso</code> · <span class="src-chip r">G</span> ativo, <code>grupo_acesso_membro</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/acessos-owner</code></td><td>acessos concedidos no escopo do owner</td><td><span class="src-chip w">A</span> <code>acesso</code> · <span class="src-chip r">G</span> ativo, <code>ativo_proprietario</code></td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/acesso/&lt;id&gt;/revogar</code></td><td>solicita revogação (RN-026)</td><td><span class="src-chip r">G</span> <code>ativo_proprietario</code> · <span class="src-chip w">A</span> <code>revogacao_acesso</code>, <code>execucao_tecnica</code> (PENDENTE), evento</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/acesso/&lt;id&gt;/reprocessar</code></td><td>reenfileira execução (RF-079/080)</td><td><span class="src-chip w">A</span> <code>execucao_tecnica</code> (PENDENTE)</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3><code>audit</code> · audit_service</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mth get">GET</span> <code>/auditoria</code></td><td>trilha restrita ao escopo do owner (RF-088)</td><td><span class="src-chip w">A</span> solicitação, acesso · <span class="src-chip r">G</span> ativo, <code>ativo_proprietario</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/resumo-dominio</code></td><td>agregados por domínio (domínio derivado polimorficamente)</td><td><span class="src-chip r">G</span> <code>dominio_informacao</code>, <code>ativo_aisn</code> · <span class="src-chip w">A</span> acesso, solicitação</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="callout"><span class="ico">worker</span><p class="ct"><b>Background worker</b> (<code>app/worker.py</code>, poll ~15s, advisory lock p/ múltiplos gunicorn) → <code>access_service.processar_execucoes_pendentes</code> → <code>membership_executor.executar</code>: lê <code>execucao_tecnica</code> PENDENTE e efetiva a associação (SCIM) + provisiona o GRANT (UC).</p></div>
+    </section>
+
+    <!-- 6 -->
+    <section class="section" id="ativo">
+      <div class="section-head"><span class="section-num">6</span>
+        <div><h2>O ativo como driver (polimórfico)</h2><p class="sub"><code>id_ativo_aisn</code> É a PK da origem; <code>cod_tipo_ativo</code> diz onde resolver.</p></div>
+      </div>
+      <p class="narrow">Não há colunas denormalizadas: catálogo/schema/tabela/domínio/subdomínio são <strong>navegados nas relações</strong>. <code>app/services/ativo_scope.py</code> centraliza a resolução e um <code>LEFT JOIN</code> polimórfico reutilizado por todos os serviços (reconstrói breadcrumb, alvo UC e <code>tipo_label</code> com os mesmos aliases — por isso os templates não mudaram).</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th><code>cod_tipo_ativo</code></th><th>Origem (<code>id_ativo_aisn</code> = PK dela)</th><th>Escopo UC resolvido</th></tr></thead>
+        <tbody>
+          <tr><td><code>1</code> = ICA</td><td><code>iniciativa_camada_ambiente</code></td><td>1 schema (<code>ON SCHEMA</code>)</td></tr>
+          <tr><td><code>2</code> = TABELA</td><td><code>tabela_aisn</code></td><td>1 tabela (<code>ON TABLE</code>)</td></tr>
+          <tr><td><code>3</code> = SUBDOMINIO</td><td><code>subdominio_informacao</code></td><td>N schemas (expande)</td></tr>
+          <tr><td><code>4</code> = DOMINIO</td><td><code>dominio_informacao</code></td><td>N schemas (expande)</td></tr>
+        </tbody>
+      </table></div>
+      <p class="narrow">O <b>owner</b> vem de <code>ativo_proprietario</code>; o <b>grupo do ativo</b> de <code>ativo_aisn.id_grupo_acesso → grupo_acesso</code> (1 grupo por ativo, <em>least-privilege</em>).</p>
+    </section>
+
+    <!-- 7 -->
+    <section class="section" id="concessao">
+      <div class="section-head"><span class="section-num">7</span>
+        <div><h2>Concessão por associação a grupo</h2><p class="sub">Não é GRANT por usuário — é membership no grupo do ativo.</p></div>
+      </div>
+      <ol class="legend">
+        <li><code>decidir_aprovacao_owner</code> cria <code>acesso</code> (AGUARDANDO) + <code>execucao_tecnica</code> PENDENTE.</li>
+        <li>O worker chama <code>membership_executor.executar</code>: resolve o grupo do ativo; <b>concessão</b> → inclui o beneficiário (nominal→usuário; grupo→grupo exploratório aninhado) via SCIM e provisiona (best-effort) o <code>GRANT</code> do grupo nos objetos; <b>revogação</b> → remove o membro.</li>
+        <li>Atualiza <code>acesso.cod_status_acesso</code> (EFETIVADO/REVOGADO/ERRO), <code>execucao_tecnica</code> e grava <code>evento_ciclo_vida</code>.</li>
+      </ol>
+      <div class="callout warn"><span class="ico">GROUPS_SCOPE</span><p class="ct"><code>db.get_groups_client()</code> decide o cliente SCIM: <b>account</b> (produção — grupos de conta, principais válidos no UC; exige <code>DATABRICKS_ACCOUNT_ID</code> e o <b>SP como gerente</b> desses grupos) ou <b>workspace</b> (dev sem conta — a associação é real e verificável, mas o GRANT do grupo <b>não propaga</b> no UC, limitação D-009; o SP precisa poder gerenciar grupos do workspace).</p></div>
+    </section>
+
+    <!-- 8 -->
+    <section class="section" id="servicos">
+      <div class="section-head"><span class="section-num">8</span>
+        <div><h2>Serviços</h2><p class="sub">Responsabilidade de cada módulo e onde grava.</p></div>
+      </div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Serviço</th><th>Responsabilidade</th><th>Grava em</th></tr></thead>
+        <tbody>
+          <tr><td><code>catalog_service</code></td><td>vitrine de ativos + detalhe + escopo</td><td>— (só lê)</td></tr>
+          <tr><td><code>request_service</code></td><td>criar/listar/cancelar solicitação, regras, hierarquia/grupos</td><td><code>gestao_acesso</code></td></tr>
+          <tr><td><code>approval_service</code></td><td>filas + decisões (gestor/owner)</td><td><code>gestao_acesso</code></td></tr>
+          <tr><td><code>access_service</code></td><td>acessos, revogação, <b>worker de efetivação</b></td><td><code>gestao_acesso</code></td></tr>
+          <tr><td><code>membership_executor</code></td><td><b>concessão = associação ao grupo</b> (SCIM) + provisiona GRANT</td><td>SCIM + UC</td></tr>
+          <tr><td><code>grant_executor</code></td><td>monta/executa GRANT/REVOKE do grupo nos objetos</td><td>UC</td></tr>
+          <tr><td><code>ativo_scope</code></td><td>resolução polimórfica ativo → objetos UC + JOIN de detalhes</td><td>—</td></tr>
+          <tr><td><code>audit_service</code></td><td>trilha de eventos + resumo por domínio</td><td><code>gestao_acesso</code> (eventos)</td></tr>
+        </tbody>
+      </table></div>
+      <p class="endnote">Marketplace de Dados · Sicoob — documentação técnica (rotas &amp; dados). Documento interno. Fonte: docs/ARQUITETURA-APP.md.</p>
+    </section>
+  </main>
+</div>
+</body>
+</html>
