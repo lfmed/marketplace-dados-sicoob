@@ -142,33 +142,35 @@ CREATE TABLE IF NOT EXISTS grupo_acesso_membro (
     PRIMARY KEY (id_grupo_acesso, id_entidade)
 );
 
--- Ativo = unidade liberável do marketplace (RN-001). Pode ser em qualquer nível
--- (DOMINIO/SUBDOMINIO/INICIATIVA/TABELA); tem grupo próprio e owner (ativo_proprietario).
--- Derivado das entidades de governança; em produção vem do Motor de Governança.
+-- Ativo = unidade liberável do marketplace (RN-001), registro de PUBLICAÇÃO sobre uma
+-- entidade de governança. Relação POLIMÓRFICA: id_ativo_aisn É a PK da entidade de origem
+-- e cod_tipo_ativo (código numérico) diz em qual tabela resolver:
+--   '1'=ICA (iniciativa_camada_ambiente) | '2'=TABELA (tabela_aisn)
+--   '3'=SUBDOMINIO (subdominio_informacao) | '4'=DOMINIO (dominio_informacao)
+-- Catálogo/schema/tabela/domínio/subdomínio são ALCANÇADOS navegando as relações do
+-- modelo — nunca copiados aqui (por isso não há FK física única). O grupo do ativo
+-- (id_grupo_acesso) detém o privilégio no UC e é nele que o solicitante é incluído.
+-- Owner em ativo_proprietario. Em produção isto vem do Motor de Governança.
 CREATE TABLE IF NOT EXISTS ativo_aisn (
-    id_ativo_aisn              VARCHAR(255) PRIMARY KEY,
+    id_ativo_aisn              VARCHAR(255) PRIMARY KEY,  -- = PK da entidade de origem
     id_grupo_acesso            VARCHAR(255) REFERENCES grupo_acesso(id_grupo_acesso),
-    cod_tipo_ativo             VARCHAR(50),          -- DOMINIO | SUBDOMINIO | INICIATIVA | TABELA
-    id_referencia              VARCHAR(255),         -- id da entidade de origem (por cod_tipo_ativo)
+    cod_tipo_ativo             VARCHAR(50),          -- 1=ICA | 2=TABELA | 3=SUBDOMINIO | 4=DOMINIO
     nome_ativo                 VARCHAR(255) NOT NULL,
     desc_ativo                 VARCHAR(1000),
-    nome_dominio               VARCHAR(255),         -- breadcrumb (denormalizado do Motor)
-    nome_subdominio            VARCHAR(255),
-    nome_catalogo              VARCHAR(255),         -- alvo UC (INICIATIVA/TABELA); expande p/ níveis maiores
-    nome_schema                VARCHAR(255),
-    nome_tabela                VARCHAR(255),
     bol_elegivel_acesso        BOOLEAN DEFAULT true,
     datahora_inicio_validade   TIMESTAMP DEFAULT now(),
     datahora_fim_validade      TIMESTAMP,
     bol_atual                  BOOLEAN DEFAULT true,
     bol_excluido               BOOLEAN DEFAULT false
 );
-ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS id_referencia   VARCHAR(255);
-ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_dominio    VARCHAR(255);
-ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_subdominio VARCHAR(255);
-ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_catalogo   VARCHAR(255);
-ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_schema     VARCHAR(255);
-ALTER TABLE ativo_aisn ADD COLUMN IF NOT EXISTS nome_tabela     VARCHAR(255);
+-- Migração (dev): remove colunas denormalizadas de versões anteriores. O breadcrumb e o
+-- alvo UC passam a ser navegados nas relações (ativo_scope), nunca copiados aqui.
+ALTER TABLE ativo_aisn DROP COLUMN IF EXISTS id_referencia;
+ALTER TABLE ativo_aisn DROP COLUMN IF EXISTS nome_dominio;
+ALTER TABLE ativo_aisn DROP COLUMN IF EXISTS nome_subdominio;
+ALTER TABLE ativo_aisn DROP COLUMN IF EXISTS nome_catalogo;
+ALTER TABLE ativo_aisn DROP COLUMN IF EXISTS nome_schema;
+ALTER TABLE ativo_aisn DROP COLUMN IF EXISTS nome_tabela;
 
 -- ---------- Owners (proprietários) ----------
 CREATE TABLE IF NOT EXISTS dominio_proprietario (

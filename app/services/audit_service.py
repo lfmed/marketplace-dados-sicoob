@@ -1,6 +1,7 @@
 """Trilha de auditoria / histórico do ciclo de vida (RN-027, RF-056, RF-081..088)."""
 import uuid
 from app import db
+from app.services import ativo_scope
 
 
 def registrar(cur, cod_evento, id_solicitacao=None, id_acesso=None, id_usuario=None, detalhe=None):
@@ -32,18 +33,21 @@ def eventos_da_solicitacao(id_solicitacao):
 
 
 def resumo_dominio():
-    """Visão agregada por domínio (RF-089-ish / apoio gerencial)."""
+    """Visão agregada por domínio (RF-089-ish / apoio gerencial).
+    O domínio de cada ativo é derivado polimorficamente (ativo_scope), não copiado."""
+    dom_expr = ativo_scope.dominio_id_expr()
+    join = ativo_scope.ativo_join("a")
     return db.query(
-        """SELECT d.id_dominio_informacao, d.nome_dominio,
-                  (SELECT count(*) FROM governanca.ativo_aisn a
-                    WHERE a.nome_dominio=d.nome_dominio AND a.bol_atual=true) AS num_ativos,
+        f"""SELECT d.id_dominio_informacao, d.nome_dominio,
+                  (SELECT count(*) FROM governanca.ativo_aisn a {join}
+                    WHERE a.bol_atual=true AND {dom_expr}=d.id_dominio_informacao) AS num_ativos,
                   (SELECT count(*) FROM gestao_acesso.acesso ac
-                     JOIN governanca.ativo_aisn a2 ON a2.id_ativo_aisn=ac.id_ativo_aisn
-                    WHERE a2.nome_dominio=d.nome_dominio
+                     JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=ac.id_ativo_aisn {join}
+                    WHERE {dom_expr}=d.id_dominio_informacao
                       AND ac.cod_status_acesso='EFETIVADO') AS acessos_ativos,
                   (SELECT count(*) FROM gestao_acesso.solicitacao_acesso so
-                     JOIN governanca.ativo_aisn a3 ON a3.id_ativo_aisn=so.id_ativo_aisn
-                    WHERE a3.nome_dominio=d.nome_dominio
+                     JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=so.id_ativo_aisn {join}
+                    WHERE {dom_expr}=d.id_dominio_informacao
                       AND so.cod_status_solicitacao IN ('PENDENTE_AUTORIZACAO','AUTORIZADA')) AS solicitacoes_abertas
              FROM governanca.dominio_informacao d
             WHERE d.bol_atual=true
@@ -53,15 +57,16 @@ def resumo_dominio():
 def auditoria_do_owner(id_owner):
     """Visão de auditoria restrita ao escopo do owner (RF-088, RN-026)."""
     return db.query(
-        """SELECT s.id_solicitacao_acesso, s.cod_status_solicitacao, s.datahora_criacao,
+        f"""SELECT s.id_solicitacao_acesso, s.cod_status_solicitacao, s.datahora_criacao,
                   s.cod_tipo_beneficiario, s.cod_tipo_acesso,
-                  a.nome_ativo, a.cod_tipo_ativo, a.nome_dominio,
+                  a.nome_ativo, a.cod_tipo_ativo, {ativo_scope.ativo_cols("a")},
                   usol.nome_completo AS solicitante,
                   ubenef.nome_completo AS beneficiario_nominal,
                   g.nome_grupo AS beneficiario_grupo,
                   ac.id_acesso, ac.cod_status_acesso, ac.datahora_efetivacao
              FROM gestao_acesso.solicitacao_acesso s
              JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             {ativo_scope.ativo_join("a")}
              JOIN governanca.ativo_proprietario p
                   ON p.id_ativo_aisn=s.id_ativo_aisn AND p.bol_atual=true
              JOIN governanca.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante

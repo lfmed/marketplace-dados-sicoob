@@ -3,7 +3,7 @@ import uuid
 
 from app import db
 from app import constants as C
-from app.services import audit_service
+from app.services import audit_service, ativo_scope
 from app.services.ativo_scope import objetos_do_ativo, rotulo_objeto
 
 
@@ -132,8 +132,9 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
     if gestor["id_usuario_aisn"] == id_solicitante:
         raise RegraNegocioError("O solicitante não pode autorizar a própria solicitação (RN-014).")
 
-    # Contexto iniciativa (só quando o ativo é de iniciativa) — demais níveis ficam nulos
-    id_ini = ativo["id_referencia"] if ativo["cod_tipo_ativo"] == "INICIATIVA" else None
+    # A solicitação ancora no ativo (id_ativo_aisn). iniciativa/ambiente ficam nulos:
+    # o nível/escopo é derivado do ativo quando necessário (ativo_scope).
+    id_ini = None
 
     id_sol = uuid.uuid4().hex
     with db.get_conn(autocommit=False) as conn:
@@ -150,7 +151,8 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
                  gestor["id_usuario_aisn"]))
             audit_service.registrar(
                 cur, C.EV_SOLICITACAO_CRIADA, id_solicitacao=id_sol, id_usuario=id_solicitante,
-                detalhe=f"ativo: {ativo['nome_ativo']} ({ativo['cod_tipo_ativo']}); "
+                detalhe=f"ativo: {ativo['nome_ativo']} "
+                        f"({C.TIPO_ATIVO_LABEL.get(ativo['cod_tipo_ativo'], ativo['cod_tipo_ativo'])}); "
                         f"autorizador previsto: {gestor['nome_completo']}")
         conn.commit()
     return id_sol
@@ -159,10 +161,11 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
 # ---------------- Consulta ----------------
 def listar_do_usuario(id_usuario):
     return db.query(
-        """SELECT s.*, a.nome_ativo, a.cod_tipo_ativo, a.nome_dominio, a.nome_subdominio,
+        f"""SELECT s.*, a.nome_ativo, a.cod_tipo_ativo, {ativo_scope.ativo_cols("a")},
                   g.nome_grupo, ubenef.nome_completo AS nome_beneficiario, ac.cod_status_acesso
              FROM gestao_acesso.solicitacao_acesso s
              LEFT JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             {ativo_scope.ativo_join("a")}
              LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
              LEFT JOIN governanca.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
              LEFT JOIN gestao_acesso.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
@@ -173,14 +176,14 @@ def listar_do_usuario(id_usuario):
 
 def detalhe(id_solicitacao):
     s = db.query_one(
-        """SELECT s.*, a.nome_ativo, a.cod_tipo_ativo, a.id_referencia,
-                  a.nome_dominio, a.nome_subdominio, a.nome_catalogo, a.nome_schema, a.nome_tabela,
+        f"""SELECT s.*, a.nome_ativo, a.cod_tipo_ativo, {ativo_scope.ativo_cols("a")},
                   g.nome_grupo, ubenef.nome_completo AS nome_beneficiario,
                   usol.nome_completo AS nome_solicitante,
                   uaut.nome_completo AS nome_autorizador_previsto,
                   ac.id_acesso, ac.cod_status_acesso, ac.datahora_efetivacao
              FROM gestao_acesso.solicitacao_acesso s
              LEFT JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             {ativo_scope.ativo_join("a")}
              JOIN governanca.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
              LEFT JOIN governanca.usuario_aisn uaut ON uaut.id_usuario_aisn=s.id_usuario_autorizador_previsto
              LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso

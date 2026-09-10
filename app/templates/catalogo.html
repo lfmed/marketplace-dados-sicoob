@@ -47,7 +47,7 @@
   {% for a in ativos %}
   <div class="card">
     <div class="tags">
-      <span class="pill lvl">{{ tipo_label[a.cod_tipo_ativo] }}</span>
+      <span class="pill lvl">{{ a.tipo_label }}</span>
       {% if a.nome_dominio %}<span class="pill dom">{{ a.nome_dominio }}</span>{% endif %}
       {% if a.nome_subdominio %}<span class="pill sub">{{ a.nome_subdominio }}</span>{% endif %}
     </div>

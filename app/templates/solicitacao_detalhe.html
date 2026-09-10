@@ -5,7 +5,7 @@
 <a class="muted" href="{{ url_for('requests.minhas') }}">&larr; Minhas solicitações</a>
 <div class="banner" style="margin-top:10px">
   <div class="tags" style="margin-bottom:8px">
-    {% if s.cod_tipo_ativo %}<span class="pill lvl">{{ s.cod_tipo_ativo|capitalize }}</span>{% endif %}
+    {% if s.tipo_label %}<span class="pill lvl">{{ s.tipo_label }}</span>{% endif %}
     {% if s.nome_dominio %}<span class="pill dom">{{ s.nome_dominio }}</span>{% endif %}
     {% if s.nome_subdominio %}<span class="pill sub">{{ s.nome_subdominio }}</span>{% endif %}
   </div>

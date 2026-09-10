@@ -4,13 +4,15 @@ import uuid
 
 from app import db
 from app import constants as C
-from app.services import audit_service, access_service
+from app.services import audit_service, access_service, ativo_scope
 from app.services.request_service import RegraNegocioError
 
-# Colunas de exibição comuns às filas (ativo + solicitante + beneficiário)
-_SEL = """s.*, a.nome_ativo, a.cod_tipo_ativo, a.nome_dominio, a.nome_subdominio,
+# Colunas de exibição comuns às filas (ativo + solicitante + beneficiário).
+# Breadcrumb/tipo_label derivados polimorficamente (ver ativo_scope).
+_SEL = f"""s.*, a.nome_ativo, a.cod_tipo_ativo, {ativo_scope.ativo_cols("a")},
           g.nome_grupo, usol.nome_completo AS nome_solicitante,
           ubenef.nome_completo AS nome_beneficiario"""
+_ATIVO_JOIN = ativo_scope.ativo_join("a")
 
 
 # ---------------- Fila do gestor (RF-027) ----------------
@@ -27,6 +29,7 @@ def fila_gestor(id_gestor):
            SELECT {_SEL}
              FROM gestao_acesso.solicitacao_acesso s
              LEFT JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             {_ATIVO_JOIN}
              JOIN governanca.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
              LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
              LEFT JOIN governanca.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
@@ -74,6 +77,7 @@ def fila_owner(id_owner):
         f"""SELECT {_SEL}
              FROM gestao_acesso.solicitacao_acesso s
              JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             {_ATIVO_JOIN}
              JOIN governanca.ativo_proprietario p
                   ON p.id_ativo_aisn=s.id_ativo_aisn AND p.bol_atual=true
              JOIN governanca.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante

@@ -10,7 +10,7 @@
     <tr>
       <td><b>{{ s.nome_ativo }}</b><br><span class="muted">{{ s.nome_dominio }}{% if s.nome_subdominio %} · {{ s.nome_subdominio }}{% endif %} · {{ s.cod_tipo_acesso }}</span></td>
       <td>{% if s.cod_tipo_beneficiario=='GRUPO' %}Grupo: {{ s.nome_grupo }}{% else %}{{ s.nome_beneficiario }}{% endif %}</td>
-      <td>{{ s.cod_tipo_ativo }}</td>
+      <td>{{ s.tipo_label }}</td>
       <td>{{ m.badge_sol(s.cod_status_solicitacao) }}</td>
       <td>{{ m.badge_ac(s.cod_status_acesso) }}</td>
       <td class="muted">{{ s.datahora_criacao.strftime('%d/%m %H:%M') if s.datahora_criacao }}</td>

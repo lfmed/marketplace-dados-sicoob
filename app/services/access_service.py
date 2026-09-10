@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from app import db
 from app import constants as C
 from app.config import config
-from app.services import audit_service, grant_executor
+from app.services import audit_service, membership_executor, ativo_scope
 
 
 def _anotar_sla(rows):
@@ -51,12 +51,12 @@ def criar_acesso(cur, solicitacao):
 def acessos_do_usuario(id_usuario):
     """Acessos nominais do usuário + por grupo do qual é membro (RF-051/052, RN-025)."""
     rows = db.query(
-        """SELECT a.*, at.nome_ativo, at.cod_tipo_ativo, at.nome_dominio, at.nome_subdominio,
-                  at.nome_schema, at.nome_tabela, g.nome_grupo,
+        f"""SELECT a.*, at.nome_ativo, at.cod_tipo_ativo, {ativo_scope.ativo_cols("at")}, g.nome_grupo,
                   CASE WHEN a.cod_tipo_beneficiario='NOMINAL' THEN 'Nominal'
                        ELSE 'Grupo: ' || g.nome_grupo END AS origem
              FROM gestao_acesso.acesso a
              LEFT JOIN governanca.ativo_aisn at ON at.id_ativo_aisn=a.id_ativo_aisn
+             {ativo_scope.ativo_join("at")}
              LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
             WHERE (a.cod_tipo_beneficiario='NOMINAL' AND a.id_usuario_beneficiario=%s)
                OR (a.cod_tipo_beneficiario='GRUPO' AND a.id_grupo_acesso IN (
@@ -70,10 +70,10 @@ def acessos_do_usuario(id_usuario):
 def acesso_padrao_owner(id_usuario):
     """RN-016: owners têm acesso padrão aos ATIVOS sob sua responsabilidade."""
     return db.query(
-        """SELECT a.id_ativo_aisn, a.nome_ativo, a.cod_tipo_ativo, a.nome_dominio, a.nome_subdominio,
-                  a.nome_schema, a.nome_tabela
+        f"""SELECT a.id_ativo_aisn, a.nome_ativo, a.cod_tipo_ativo, {ativo_scope.ativo_cols("a")}
              FROM governanca.ativo_proprietario p
              JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=p.id_ativo_aisn
+             {ativo_scope.ativo_join("a")}
             WHERE p.id_usuario_aisn=%s AND p.bol_atual=true AND a.bol_atual=true
             ORDER BY a.cod_tipo_ativo, a.nome_ativo""",
         (id_usuario,))
@@ -82,12 +82,13 @@ def acesso_padrao_owner(id_usuario):
 def acessos_do_owner(id_owner):
     """Acessos concedidos no escopo do owner do ativo (RF-040/041)."""
     rows = db.query(
-        """SELECT a.*, at.nome_ativo, at.cod_tipo_ativo, at.nome_dominio, g.nome_grupo,
+        f"""SELECT a.*, at.nome_ativo, at.cod_tipo_ativo, {ativo_scope.ativo_cols("at")}, g.nome_grupo,
                   ubenef.nome_completo AS nome_beneficiario,
                   CASE WHEN a.cod_tipo_beneficiario='NOMINAL' THEN ubenef.nome_completo
                        ELSE 'Grupo: ' || g.nome_grupo END AS origem
              FROM gestao_acesso.acesso a
              JOIN governanca.ativo_aisn at ON at.id_ativo_aisn=a.id_ativo_aisn
+             {ativo_scope.ativo_join("at")}
              JOIN governanca.ativo_proprietario p
                   ON p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true
              LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
@@ -152,7 +153,7 @@ def processar_execucoes_pendentes(limite=20):
 
             for e in pendentes:
                 acesso = _acesso(e["id_acesso"])
-                ok, comando, erro = grant_executor.executar(e["cod_tipo_operacao"], acesso)
+                ok, comando, erro = membership_executor.executar(e["cod_tipo_operacao"], acesso)
                 if ok:
                     cur.execute(
                         """UPDATE gestao_acesso.execucao_tecnica
@@ -168,7 +169,7 @@ def processar_execucoes_pendentes(limite=20):
                         audit_service.registrar(cur, C.EV_EFETIVADO,
                                                 id_solicitacao=acesso["id_solicitacao_acesso"],
                                                 id_acesso=e["id_acesso"],
-                                                detalhe="concessão efetivada no Unity Catalog")
+                                                detalhe="acesso efetivado: beneficiário associado ao grupo do ativo")
                     else:
                         cur.execute(
                             """UPDATE gestao_acesso.acesso
@@ -182,7 +183,7 @@ def processar_execucoes_pendentes(limite=20):
                         audit_service.registrar(cur, C.EV_REVOGADO,
                                                 id_solicitacao=acesso["id_solicitacao_acesso"],
                                                 id_acesso=e["id_acesso"],
-                                                detalhe="revogação efetivada no Unity Catalog")
+                                                detalhe="revogação efetivada: beneficiário removido do grupo do ativo")
                 else:
                     cur.execute(
                         """UPDATE gestao_acesso.execucao_tecnica

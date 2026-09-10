@@ -10,7 +10,7 @@
   {% if not itens %}<p class="muted">Nenhuma solicitação pendente.</p>{% endif %}
   {% for s in itens %}
   <div style="border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px">
-    <b>{{ s.nome_ativo }}</b> · <span class="muted">{{ s.cod_tipo_ativo }}{% if s.nome_dominio %} · {{ s.nome_dominio }}{% endif %} · {{ s.cod_tipo_acesso }}</span>
+    <b>{{ s.nome_ativo }}</b> · <span class="muted">{{ s.tipo_label }}{% if s.nome_dominio %} · {{ s.nome_dominio }}{% endif %} · {{ s.cod_tipo_acesso }}</span>
     <div style="margin:6px 0">
       Solicitante: <b>{{ s.nome_solicitante }}</b> ·
       Beneficiário: {% if s.cod_tipo_beneficiario=='GRUPO' %}Grupo {{ s.nome_grupo }}{% else %}{{ s.nome_beneficiario }}{% endif %}

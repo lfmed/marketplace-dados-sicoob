@@ -48,6 +48,22 @@ E_ERRO = "ERRO"
 B_NOMINAL = "NOMINAL"
 B_GRUPO = "GRUPO"
 
+# Tipos de ATIVO (código numérico do Motor) -> tabela de origem que o resolve.
+# O id_ativo_aisn É a PK da entidade de origem (relação polimórfica, sem FK física).
+AT_ICA = "1"         # iniciativa_camada_ambiente  -> 1 schema  (GRANT ON SCHEMA)
+AT_TABELA = "2"      # tabela_aisn                 -> 1 tabela  (GRANT ON TABLE)
+AT_SUBDOMINIO = "3"  # subdominio_informacao       -> N schemas (expande)
+AT_DOMINIO = "4"     # dominio_informacao          -> N schemas (expande)
+
+TIPO_ATIVO_LABEL = {
+    AT_ICA: "Iniciativa",
+    AT_TABELA: "Tabela",
+    AT_SUBDOMINIO: "Subdomínio",
+    AT_DOMINIO: "Domínio",
+}
+# Ordem de exibição no catálogo (do mais amplo ao mais específico)
+TIPOS_ATIVO = [AT_DOMINIO, AT_SUBDOMINIO, AT_ICA, AT_TABELA]
+
 # Tipos de acesso (RF-014) -> privilégios UC concedidos no schema
 TIPOS_ACESSO = {
     "LEITURA": ["SELECT"],

@@ -66,16 +66,16 @@ def build_rows(icas):
                                              "cod_conta_databricks": None, **_scd2()})
 
     # ---------- Derivação dos ATIVOS (unidade liberável do marketplace) ----------
-    # Cada entidade de governança vira um ativo (DOMINIO/SUBDOMINIO/INICIATIVA/TABELA),
-    # com owner herdado e um grupo (por domínio). Em produção isto vem do Motor.
+    # Modelo do cliente: id_ativo_aisn É a PK da entidade de origem; cod_tipo_ativo
+    # (numérico) diz onde resolver (1=ICA, 2=TABELA, 3=SUBDOMINIO, 4=DOMINIO). SEM colunas
+    # denormalizadas: breadcrumb/alvo UC são navegados (ativo_scope). Cada ativo tem seu
+    # PRÓPRIO grupo (least-privilege): o grupo é concedido exatamente nos objetos do ativo
+    # e é nele que o usuário/grupo do solicitante é incluído. Em produção vem do Motor.
+    from app import constants as C
     from app.config import config
-    cat = config.UC_CATALOG
-    dom_nome = {d: n for d, n, _ in data.DOMINIOS}
-    sub_nome = {s: n for s, _, n in data.SUBDOMINIOS}
-    sub2dom = {s: d for s, d, _ in data.SUBDOMINIOS}
-    ini2sub = {i: sub for i, sub, *_ in data.INICIATIVAS}
     ini2nome = {i: nome for i, _sub, nome, *_ in data.INICIATIVAS}
     ini2owner = {i: owner for i, _s, _n, _d, owner, _c in data.INICIATIVAS}
+    cam_nome = {c: n for c, n, _ in data.CAMADAS}
     sub2owner, dom2owner = {}, {}
     for i, sub, _n, _d, owner, _c in data.INICIATIVAS:
         sub2owner.setdefault(sub, owner)
@@ -83,43 +83,34 @@ def build_rows(icas):
         if s in sub2owner:
             dom2owner.setdefault(d, sub2owner[s])
 
-    def _grp_dom(did):
-        return f"grpat_{did}"
-
-    def _add_ativo(aid, tipo, ref, nome, desc, dnome, snome, sch, tab, owner, did):
+    def _add_ativo(aid, tipo, nome, desc, owner):
+        # grupo próprio do ativo (nome UC = alvo do GRANT e da associação de membros)
+        gid = f"grpat_{aid}"
+        r["grupo_acesso"].append({
+            "id_grupo_acesso": gid, "id_externo_grupo": None, "cod_conta_databricks": None,
+            "nome_grupo": f"{config.UC_SCHEMA_PREFIX}_at_{aid}", "tipo_grupo": "ATIVO", **_scd2()})
         r["ativo_aisn"].append({
-            "id_ativo_aisn": aid, "id_grupo_acesso": _grp_dom(did), "cod_tipo_ativo": tipo,
-            "id_referencia": ref, "nome_ativo": nome, "desc_ativo": desc,
-            "nome_dominio": dnome, "nome_subdominio": snome, "nome_catalogo": cat,
-            "nome_schema": sch, "nome_tabela": tab, "bol_elegivel_acesso": True, **_scd2()})
+            "id_ativo_aisn": aid, "id_grupo_acesso": gid, "cod_tipo_ativo": tipo,
+            "nome_ativo": nome, "desc_ativo": desc, "bol_elegivel_acesso": True, **_scd2()})
         if owner:
             r["ativo_proprietario"].append({"id_usuario_aisn": owner, "id_ativo_aisn": aid,
                                             "cod_tipo_proprietario": "OWNER", "bol_principal": True, **_scd2()})
 
-    # grupo por domínio (o "grupo do ativo")
-    for did, nome, _desc in data.DOMINIOS:
-        r["grupo_acesso"].append({"id_grupo_acesso": _grp_dom(did), "id_externo_grupo": None,
-                                  "cod_conta_databricks": None, "nome_grupo": f"mkt_at_{did[4:]}",
-                                  "tipo_grupo": "ATIVO", **_scd2()})
-    # DOMINIO
+    # DOMINIO (tipo 4) — id = id_dominio_informacao
     for did, nome, desc in data.DOMINIOS:
-        _add_ativo(f"at_{did}", "DOMINIO", did, nome, desc, nome, None, None, None,
-                   dom2owner.get(did), did)
-    # SUBDOMINIO
+        _add_ativo(did, C.AT_DOMINIO, nome, desc, dom2owner.get(did))
+    # SUBDOMINIO (tipo 3) — id = id_subdominio_informacao
     for sid, did, nome in data.SUBDOMINIOS:
-        _add_ativo(f"at_{sid}", "SUBDOMINIO", sid, nome, f"Subdomínio {nome}", dom_nome[did], nome,
-                   None, None, sub2owner.get(sid) or dom2owner.get(did), did)
-    # INICIATIVA
-    for ini_id, sub, nome, desc, owner, _cam in data.INICIATIVAS:
-        did = sub2dom[sub]
-        _add_ativo(f"at_{ini_id}", "INICIATIVA", ini_id, nome, desc, dom_nome[did], sub_nome[sub],
-                   None, None, owner, did)
-    # TABELA (uma por linha de tabela_aisn, herdando dom/sub/owner da iniciativa)
+        _add_ativo(sid, C.AT_SUBDOMINIO, nome, f"Subdomínio {nome}",
+                   sub2owner.get(sid) or dom2owner.get(did))
+    # ICA (tipo 1) — id = id_iniciativa_camada_ambiente (1 schema, por D-008)
     for ica_id, ini_id, cam, _amb, schema_uc in icas:
-        did = sub2dom[ini2sub[ini_id]]
+        _add_ativo(ica_id, C.AT_ICA, f"{ini2nome[ini_id]} · {cam_nome.get(cam, cam)}",
+                   f"Schema {schema_uc} ({cam_nome.get(cam, cam)})", ini2owner[ini_id])
+    # TABELA (tipo 2) — id = id_tabela_aisn
+    for ica_id, ini_id, cam, _amb, _schema_uc in icas:
         for nome_tab, _cols in data.TABELAS_EXEMPLO.get(cam, []):
             tid = f"tab_{ica_id}_{nome_tab}"
-            _add_ativo(f"at_{tid}", "TABELA", tid, f"{ini2nome[ini_id]} · {nome_tab}",
-                       f"Tabela {nome_tab} ({cam})", dom_nome[did], sub_nome[ini2sub[ini_id]],
-                       schema_uc, nome_tab, ini2owner[ini_id], did)
+            _add_ativo(tid, C.AT_TABELA, f"{ini2nome[ini_id]} · {nome_tab}",
+                       f"Tabela {nome_tab} ({cam_nome.get(cam, cam)})", ini2owner[ini_id])
     return r

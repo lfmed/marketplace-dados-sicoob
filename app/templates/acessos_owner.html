@@ -10,7 +10,7 @@
     <tr>
       <td><b>{{ a.nome_ativo }}</b>{% if a.nome_dominio %}<br><span class="muted">{{ a.nome_dominio }}</span>{% endif %}</td>
       <td>{{ a.origem }}</td>
-      <td>{{ a.cod_tipo_ativo }}</td>
+      <td>{{ a.tipo_label }}</td>
       <td>{{ m.badge_ac(a.cod_status_acesso) }}
         {% if a.cod_status_acesso == S.A_AGUARDANDO_EFETIVACAO %}
           {% if a.sla_estourado %}<span class="badge b-err">SLA estourado</span>

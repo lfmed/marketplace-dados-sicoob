@@ -10,7 +10,7 @@
   <table>
     <tr><th>Ativo</th><th>Nível</th><th>Domínio</th></tr>
     {% for o in padrao_owner %}
-    <tr><td><b>{{ o.nome_ativo }}</b></td><td>{{ o.cod_tipo_ativo }}</td>
+    <tr><td><b>{{ o.nome_ativo }}</b></td><td>{{ o.tipo_label }}</td>
         <td><span class="muted">{{ o.nome_dominio or '—' }}{% if o.nome_subdominio %} · {{ o.nome_subdominio }}{% endif %}</span></td></tr>
     {% endfor %}
   </table>
@@ -25,7 +25,7 @@
     <tr>
       <td><b>{{ a.nome_ativo }}</b>{% if a.nome_dominio %}<br><span class="muted">{{ a.nome_dominio }}</span>{% endif %}</td>
       <td>{{ a.origem }}</td>
-      <td>{{ a.cod_tipo_ativo }}</td>
+      <td>{{ a.tipo_label }}</td>
       <td>{{ m.badge_ac(a.cod_status_acesso) }}</td>
       <td class="muted">
         {% if a.cod_status_acesso == S.A_AGUARDANDO_EFETIVACAO %}
