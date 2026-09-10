@@ -1,30 +1,39 @@
 # Marketplace de Dados — Sicoob
 
 App de **catálogo e gestão de acesso a dados** (Databricks App · Flask + Jinja2 · Lakebase).
-Usuários navegam um catálogo por **domínio → subdomínio → iniciativa** e solicitam acesso
-(nominal ou por grupo exploratório). Aprovação em duas etapas — **gestor imediato** →
-**owner da iniciativa** — e o app **efetiva o acesso via GRANT real no Unity Catalog**.
+O catálogo gira em torno do **ativo** (`ativo_aisn`) — a unidade liberável em **qualquer
+nível** (domínio, subdomínio, iniciativa/schema ou tabela). O usuário pede acesso a um ativo
+(para si ou para seu grupo exploratório); a aprovação é em duas etapas — **gestor imediato**
+→ **owner do ativo** — e a efetivação é por **associação ao grupo do ativo** (o grupo detém
+o privilégio no Unity Catalog).
 
 Cobre o MVP dos requisitos (RN-001..042 / RF-001..092) de `Requisitos - App Acesso.pdf`.
 
 ## Arquitetura
 ```
 Usuário ─▶ App Flask (Databricks Apps)
-             ├─ lê  governanca   (catálogo)  ── SYNC ◀── Delta (UC) = fonte da verdade (modelo .drawio)
+             ├─ lê  governanca   (catálogo = ativos)  ── SYNC ◀── Delta (UC) = fonte da verdade (Motor)
              ├─ lê/grava gestao_acesso (ciclo de vida) — nativo no Lakebase
-             └─ efetiva GRANT/REVOKE reais no Unity Catalog (nível de schema = iniciativa+camada)
+             ├─ associa o beneficiário ao GRUPO DO ATIVO (SCIM: account groups em prod)
+             └─ provisiona o GRANT do grupo nos objetos UC (por nível: schema/tabela)
 ```
-- **governanca** (16 tabelas do `.drawio`): mantida em Delta no UC e **sincronizada** para o
-  Lakebase (synced tables nativas em produção; sync controlado no protótipo — ver
-  `docs/DECISIONS.md` D-010/D-011).
-- **gestao_acesso** (9 tabelas): solicitação → autorização hierárquica → aprovação owner →
-  acesso → execução técnica → revogação + trilha de auditoria. Nativo no Lakebase.
+- **governanca** (16 tabelas): modelo do Motor, mantido em Delta no UC e **sincronizado** para
+  o Lakebase (synced tables nativas em produção; sync controlado no protótipo — ver
+  `docs/DECISIONS.md` D-010/D-011). O app **só lê**. Inclui `ativo_aisn` (driver do catálogo,
+  **polimórfico**: `id_ativo_aisn` = PK da entidade de origem, `cod_tipo_ativo` numérico).
+- **gestao_acesso**: solicitação → autorização hierárquica → aprovação owner → acesso →
+  execução técnica → revogação + trilha de auditoria. Nativo no Lakebase (leitura/escrita).
+- **Concessão = associação a grupo** (não GRANT por usuário): o beneficiário é incluído no
+  grupo do ativo, que detém o privilégio no UC. Ver `docs/ARQUITETURA-APP.md`.
 - Nomenclatura: snake_case + prefixos (`docs/DECISIONS.md` D-001).
+
+> **Rotas e fontes de dados:** `docs/ARQUITETURA-APP.md` documenta cada rota, o serviço que
+> ela chama e de onde busca/grava os dados.
 
 ## Estrutura
 ```
 app/            Flask (factory, config, db, identity, worker)
-  services/     catálogo, solicitação, aprovação, acesso, executor de grant, auditoria
+  services/     catálogo, solicitação, aprovação, acesso, ativo_scope, membership/grant executor, auditoria
   routes/       blueprints (catálogo, solicitações, aprovações, acessos, auditoria)
   templates/    Jinja2 (tema Sicoob) · static/style.css
 db/
@@ -51,8 +60,10 @@ gestor (ex.: Mariana Alves) e owner (ex.: Ana Paula Ribeiro).
 ## Testes
 ```bash
 export DATABRICKS_CONFIG_PROFILE=DEFAULT APP_DISABLE_WORKER=true
-python -m pytest tests/              # 7 regras (rápido) + 1 e2e com grant real (lento)
+python -m pytest tests/              # 15 regras/modelo (rápido) + 2 e2e (associação real ao grupo, lento)
 ```
+> Para o e2e determinístico, pare o app publicado antes (`databricks apps stop marketplace-dados`)
+> e reinicie depois — senão o worker publicado (SP) pode disputar as execuções pendentes.
 
 ## Deploy (workspace do cliente)
 
@@ -92,6 +103,8 @@ LAKEBASE_ENDPOINT     projects/marketplace-dados/branches/production/endpoints/p
 LAKEBASE_UC_CATALOG   catálogo que registra o Lakebase no UC (ex.: lakebase_marketplace)
 GRANT_EXECUTE_REAL    true
 APP_ENABLE_PROXY      false   # produção: identidade só por SSO (X-Forwarded-Email)
+GROUPS_SCOPE          account # produção: grupos de conta (dev sem conta: workspace)
+DATABRICKS_ACCOUNT_ID <account-id>   # exigido quando GROUPS_SCOPE=account
 ```
 
 ### 4. Provisionar o banco
@@ -111,6 +124,12 @@ python scripts/grant_app_sp.py <sp_client_id>
 ```
 Concede `USE CATALOG` + `MANAGE` no catálogo/schemas, `CAN_USE` no warehouse e um role no
 Lakebase. Comandos explícitos em `docs/DEPLOY.md` §4.
+
+**Concessão por grupo:** como a efetivação inclui o beneficiário no **grupo do ativo**, o SP
+do app precisa poder **gerenciar a associação desses grupos**. Em produção (grupos de conta,
+`GROUPS_SCOPE=account`), torne o SP **gerente dos grupos de conta** (ou admin de conta). Em
+dev (grupos workspace-local), o SP precisa poder gerenciar grupos do workspace (ex.: estar em
+`admins`). Ver `docs/DEPLOY.md` §2.
 
 ### 6. Publicar no Databricks Apps
 ```bash

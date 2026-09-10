@@ -127,6 +127,35 @@ reprocessamento (RF-079/080). Permissões do SP codificadas em `scripts/grant_ap
 e documentadas em `docs/DEPLOY.md`. Lakebase: role Postgres do SP via `create-role` +
 grants nos schemas.
 
+## D-013 — Catálogo ATIVO-cêntrico polimórfico (id = PK da origem) — 2026-09-10
+O catálogo passa a girar em torno de **`ativo_aisn`** (a unidade liberável, em qualquer
+nível). Modelo **polimórfico normalizado** (correção pedida pelo cliente sobre uma versão
+minha que denormalizava): **`id_ativo_aisn` É a PK da entidade de origem** e
+**`cod_tipo_ativo`** (código numérico) diz onde resolver — `1`=ICA
+(`iniciativa_camada_ambiente`), `2`=TABELA (`tabela_aisn`), `3`=SUBDOMINIO, `4`=DOMINIO.
+Catálogo/schema/tabela/domínio/subdomínio são **navegados nas relações** do modelo, nunca
+copiados no ativo (removidas as 6 colunas denormalizadas). Resolvedor central em
+`app/services/ativo_scope.py`. **Supera a granularidade da D-008/RN-003**: o grant é no
+**nível do ativo** (`ON TABLE` p/ tabela; `ON SCHEMA` — expandido — p/ ICA/sub/domínio).
+Owner em `ativo_proprietario`; grupo do ativo em `ativo_aisn.id_grupo_acesso` (1 grupo por
+ativo, least-privilege). *(Confirmado pelo usuário.)*
+
+## D-014 — Concessão por ASSOCIAÇÃO A GRUPO + escopo de grupos (account/workspace) — 2026-09-10
+A efetivação **deixa de ser GRANT por usuário** e passa a ser **associação a grupo**
+(decisão do cliente): quem detém o privilégio no UC é o **grupo do ativo**; conceder =
+incluir o beneficiário no grupo (**nominal**→usuário; **grupo**→grupo exploratório aninhado),
+revogar = remover. `app/services/membership_executor.py` faz isso via SCIM e, best-effort,
+provisiona o `GRANT` do grupo nos objetos (`grant_executor.provisionar_ativo`).
+**Escopo dos grupos (`config.GROUPS_SCOPE`), estende a D-009:**
+- **`account`** (produção/cliente): grupos de **conta** — principais válidos no UC (o GRANT
+  do grupo propaga). `db.get_groups_client()` usa `AccountClient`; exige
+  `DATABRICKS_ACCOUNT_ID` e o **SP do app como gerente dos grupos de conta** (ou admin de conta).
+- **`workspace`** (dev, sem acesso à conta): grupos workspace-local. A associação é real e
+  verificável; o `GRANT` do grupo **não propaga** (`PRINCIPAL_DOES_NOT_EXIST`, D-009). Aqui o
+  SP do app foi adicionado ao grupo `admins` do workspace para poder gerenciar a associação.
+Validado (2026-09-10): 15 testes de regra/modelo + 2 e2e (associação real ICA e TABELA); e
+`scripts/verify_deployed_worker.py` confirma o worker publicado (SP) efetivando. *(Confirmado.)*
+
 ## Infra provisionada (dev) — 2026-09-03
 - **Lakebase (autoscaling):** project `projects/marketplace-dados`, branch `production`,
   endpoint `.../endpoints/primary` (host `ep-lucky-dawn-d2x5bhqt.database.us-east-1.cloud.databricks.com`),

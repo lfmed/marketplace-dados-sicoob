@@ -259,7 +259,7 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
         <div><h2>Arquitetura em produção</h2>
         <p class="sub">Três planos: a governança (origem, no cliente), o estado (Lakebase) e a efetivação (Unity Catalog).</p></div>
       </div>
-      <p class="narrow">O app <strong>não é a fonte da verdade</strong> da governança — ele a <strong>consome</strong>. Os metadados (domínios, iniciativas, camadas, owners, hierarquia) são mantidos pelo <strong>Motor de Governança</strong> do cliente em tabelas Delta e replicados para o Lakebase por <em>synced tables</em>. O app lê essa governança, registra o ciclo de vida das solicitações no schema <code>gestao_acesso</code> e, na efetivação, executa <strong>GRANT/REVOKE reais</strong> nos schemas de dados do Unity Catalog — agindo como um <strong>Service Principal</strong>.</p>
+      <p class="narrow">O app <strong>não é a fonte da verdade</strong> da governança — ele a <strong>consome</strong>. Os metadados (domínios, subdomínios, iniciativas, camadas, owners, hierarquia e os <strong>ativos</strong>) são mantidos pelo <strong>Motor de Governança</strong> do cliente em tabelas Delta e replicados para o Lakebase por <em>synced tables</em>. O catálogo gira em torno do <strong>ativo</strong> — a unidade liberável em qualquer nível (domínio, subdomínio, iniciativa/schema ou tabela). O app lê essa governança, registra o ciclo de vida no schema <code>gestao_acesso</code> e, na efetivação, <strong>inclui o beneficiário no grupo do ativo</strong> (que detém o <code>GRANT</code> real no Unity Catalog) — agindo como um <strong>Service Principal</strong>.</p>
       <div class="arch">
         <svg viewBox="0 0 1000 470" role="img" aria-label="Diagrama: fluxo de dados do Marketplace em produção — Motor de Governança para Lakebase, App e Unity Catalog">
           <defs>
@@ -302,17 +302,17 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
           <!-- D · Unity Catalog -->
           <text class="dg-eyebrow" x="744" y="160">EFETIVAÇÃO</text>
           <rect class="dg-box" x="744" y="170" width="176" height="120" rx="12"/>
-          <text class="dg-title" x="758" y="200">Unity Catalog</text>
-          <text class="dg-sub" x="758" y="223">GRANT / REVOKE</text>
-          <text class="dg-sub" x="758" y="242">nos schemas reais</text>
-          <text class="dg-sub" x="758" y="261">dos dados</text>
+          <text class="dg-title" x="758" y="200">Grupo do ativo</text>
+          <text class="dg-sub" x="758" y="223">detém o GRANT no UC</text>
+          <text class="dg-sub" x="758" y="242">(schema / tabela,</text>
+          <text class="dg-sub" x="758" y="261">por nível do ativo)</text>
 
           <!-- Beneficiário -->
           <rect class="dg-node" x="757" y="356" width="150" height="52" rx="10"/>
           <text class="dg-node-t" x="832" y="380" text-anchor="middle">Beneficiário</text>
           <text class="dg-node-t" x="832" y="398" text-anchor="middle" style="font-size:10px;fill:#a9d2c9;font-family:var(--mono);font-weight:400">usuário · grupo · SP</text>
           <line class="dg-line accent" x1="832" y1="290" x2="832" y2="356" marker-end="url(#ahA)"/>
-          <text class="dg-lbl on" x="860" y="326">acesso</text>
+          <text class="dg-lbl on" x="852" y="326">acesso</text>
 
           <!-- connectors -->
           <line class="dg-line" x1="188" y1="230" x2="252" y2="230" marker-end="url(#ah)"/>
@@ -320,15 +320,15 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
           <line class="dg-line" x1="432" y1="230" x2="496" y2="230" marker-end="url(#ah)"/>
           <text class="dg-lbl" x="464" y="216">lê / grava</text>
           <line class="dg-line accent" x1="676" y1="230" x2="740" y2="230" marker-end="url(#ahA)"/>
-          <text class="dg-lbl on" x="708" y="216">grant</text>
+          <text class="dg-lbl on" x="700" y="216">associa</text>
         </svg>
       </div>
       <ol class="legend">
-        <li><b>Motor de Governança</b> mantém os metadados (domínios, iniciativas, camadas, owners, hierarquia) em tabelas Delta no Unity Catalog — fonte da verdade, fora do app.</li>
+        <li><b>Motor de Governança</b> mantém os metadados (domínios, subdomínios, iniciativas, camadas, owners, hierarquia) e os <b>ativos</b> em tabelas Delta no Unity Catalog — fonte da verdade, fora do app.</li>
         <li><b>Synced tables</b> replicam essas tabelas Delta para o schema <code>governanca</code> no Lakebase (espelho de leitura, atualizado continuamente).</li>
-        <li>O <b>usuário entra via SSO</b>; o app lê a governança do Lakebase e registra cada solicitação, autorização e aprovação no schema transacional <code>gestao_acesso</code>.</li>
-        <li>Na aprovação final do owner, o <b>worker de efetivação</b> executa <code>GRANT</code>/<code>REVOKE</code> no schema real do Unity Catalog — agindo como o <b>Service Principal</b> do app.</li>
-        <li>O <b>beneficiário</b> (usuário nominal, grupo exploratório ou service principal) passa a ter acesso ao schema, de forma auditável (RF-081..088).</li>
+        <li>O <b>usuário entra via SSO</b>, navega o catálogo de <b>ativos</b> e pede acesso a um ativo; o app lê a governança do Lakebase e registra cada solicitação, autorização e aprovação no schema transacional <code>gestao_acesso</code>.</li>
+        <li>Na aprovação final do owner do ativo, o <b>worker de efetivação</b> <b>inclui o beneficiário no grupo do ativo</b> (via SCIM) — o grupo é quem detém o <code>GRANT</code> no Unity Catalog, concedido por nível do ativo (schema/tabela). Revogar = remover a associação. O app age como o <b>Service Principal</b>.</li>
+        <li>O <b>beneficiário</b> (usuário nominal ou o grupo exploratório do usuário) passa a ter acesso por ser <b>membro do grupo do ativo</b>, de forma auditável (RF-081..088).</li>
       </ol>
     </section>
 
@@ -346,10 +346,10 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
             <tr><td class="num-c">1</td><td><span class="what">Workspace Databricks + Unity Catalog</span><span class="why">Base de tudo; UC habilitado no metastore.</span></td><td>Fundação para catálogo e grants.</td><td><span class="who cli">Cliente</span></td></tr>
             <tr><td class="num-c">2</td><td><span class="what">SQL Warehouse serverless</span><span class="why">Ativo e acessível pelo SP do app.</span></td><td>Executa o DDL e os <code>GRANT</code>/<code>REVOKE</code> reais.</td><td><span class="who cli">Cliente</span></td></tr>
             <tr><td class="num-c">3</td><td><span class="what">Projeto Lakebase</span><span class="why">Autoscaling, Postgres 17.</span></td><td>Banco do app: ciclo de vida do acesso + espelho da governança.</td><td><span class="who cli">Cliente</span> <span class="who fe">FE</span></td></tr>
-            <tr><td class="num-c">4</td><td><span class="what">Catálogo UC + schemas reais</span><span class="why">Os dados por iniciativa/camada já existem.</span></td><td>São os <strong>alvos</strong> do grant (<code>SELECT</code>/<code>MODIFY</code> no schema).</td><td><span class="who cli">Cliente</span></td></tr>
-            <tr><td class="num-c">5</td><td><span class="what">Service Principal do app</span><span class="why">Identidade sob a qual o app roda.</span></td><td><code>MANAGE</code> no catálogo/schemas, <code>CAN_USE</code> no warehouse, role no Lakebase.</td><td><span class="who cli">Cliente concede</span></td></tr>
-            <tr><td class="num-c">6</td><td><span class="what">Base de governança (Motor)</span><span class="why">Domínios, iniciativas, camadas, owners, hierarquia, grupos — em Delta.</span></td><td>É o que o app cataloga e usa para validar e rotear aprovações.</td><td><span class="who cli">Cliente · Motor</span></td></tr>
-            <tr><td class="num-c">7</td><td><span class="what">Account groups no UC</span><span class="why">Só se usar acesso por grupo exploratório.</span></td><td>Grant a grupo exige grupo <em>de conta</em> (não workspace-local).</td><td><span class="who cli">Cliente</span></td></tr>
+            <tr><td class="num-c">4</td><td><span class="what">Catálogo UC + schemas reais</span><span class="why">Os dados (schemas/tabelas) já existem.</span></td><td>São os <strong>alvos</strong> do grant do grupo do ativo (<code>SELECT</code>/<code>MODIFY</code>, por nível).</td><td><span class="who cli">Cliente</span></td></tr>
+            <tr><td class="num-c">5</td><td><span class="what">Service Principal do app</span><span class="why">Identidade sob a qual o app roda.</span></td><td><code>MANAGE</code> no catálogo/schemas, <code>CAN_USE</code> no warehouse, role no Lakebase e <strong>gerente dos grupos de conta</strong> (para associar membros).</td><td><span class="who cli">Cliente concede</span></td></tr>
+            <tr><td class="num-c">6</td><td><span class="what">Base de governança + ativos (Motor)</span><span class="why">Domínios, subdomínios, iniciativas, camadas, owners, hierarquia, grupos e <strong>ativos</strong> — em Delta.</span></td><td>É o que o app cataloga (o <strong>ativo</strong> é o driver) e usa para validar e rotear aprovações.</td><td><span class="who cli">Cliente · Motor</span></td></tr>
+            <tr><td class="num-c">7</td><td><span class="what">Account groups no UC</span><span class="why">São o <strong>grupo do ativo</strong> — o mecanismo da concessão.</span></td><td>O beneficiário é incluído no grupo do ativo; o grupo (de conta) é principal válido do UC e detém o grant.</td><td><span class="who cli">Cliente</span></td></tr>
             <tr><td class="num-c">8</td><td><span class="what">SSO na workspace</span><span class="why">Identidade propagada ao app.</span></td><td>Usuário logado é identificado pelo e-mail (<code>X-Forwarded-Email</code>).</td><td><span class="who cli">Cliente</span></td></tr>
           </tbody>
         </table>
@@ -360,8 +360,8 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
       </div>
       <div class="refs">
         <span class="ref doc-int">docs/DEPLOY.md · §0</span>
-        <span class="ref doc-int">docs/DECISIONS.md · D-007 / D-008 / D-009</span>
-        <span class="ref doc-int">docs/01-modelo-dados.md</span>
+        <span class="ref doc-int">docs/DECISIONS.md · D-007..D-009 / D-013 / D-014</span>
+        <span class="ref doc-int">docs/ARQUITETURA-APP.md</span>
       </div>
     </section>
 
@@ -456,6 +456,8 @@ databricks postgres create-project marketplace-dados \
         <div class="row"><div class="key">LAKEBASE_ENDPOINT</div><div class="val"><code>projects/marketplace-dados/branches/production/endpoints/primary</code></div></div>
         <div class="row"><div class="key">GRANT_EXECUTE_REAL</div><div class="val">Executa GRANT/REVOKE reais no UC. <code>true</code></div></div>
         <div class="row"><div class="key">APP_ENABLE_PROXY</div><div class="val">Seletor "atuar como" (demo). Produção: <code>false</code></div></div>
+        <div class="row"><div class="key">GROUPS_SCOPE</div><div class="val">Escopo dos grupos da concessão. Produção: <code>account</code> (grupos de conta). Dev sem conta: <code>workspace</code></div></div>
+        <div class="row"><div class="key">DATABRICKS_ACCOUNT_ID</div><div class="val">Id da conta — exigido quando <code>GROUPS_SCOPE=account</code></div></div>
       </div>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">yaml · app.yaml</span></div>
@@ -470,9 +472,13 @@ env:
   - name: GRANT_EXECUTE_REAL
     value: "true"
   - name: APP_ENABLE_PROXY
-    value: "false"        <span class="c"># produção: sem "atuar como"</span></code></pre>
+    value: "false"        <span class="c"># produção: sem "atuar como"</span>
+  - name: GROUPS_SCOPE
+    value: "account"      <span class="c"># grupos de conta (dev sem conta: workspace)</span>
+  - name: DATABRICKS_ACCOUNT_ID
+    value: "&lt;account_id&gt;"</code></pre>
       </div>
-      <p class="narrow">Duas variáveis merecem atenção em produção. <code>GRANT_EXECUTE_REAL=true</code> liga a efetivação real no Unity Catalog — com <code>false</code>, o app registra todo o fluxo mas não executa o grant (útil só para ensaios). E <code>APP_ENABLE_PROXY=false</code> desativa o seletor "atuar como" (usado na demo para simular personas); em produção a identidade vem exclusivamente do SSO, pelo cabeçalho <code>X-Forwarded-Email</code> que o Databricks Apps injeta a cada requisição.</p>
+      <p class="narrow">Três variáveis merecem atenção em produção. <code>GRANT_EXECUTE_REAL=true</code> liga a efetivação real — com <code>false</code>, o app registra o fluxo mas não altera nada (ensaios). <code>APP_ENABLE_PROXY=false</code> desativa o seletor "atuar como"; em produção a identidade vem só do SSO (<code>X-Forwarded-Email</code>). E <code>GROUPS_SCOPE=account</code> diz que a concessão usa <strong>grupos de conta</strong> (o beneficiário é incluído no grupo do ativo, que é principal válido no UC) — nesse modo defina também <code>DATABRICKS_ACCOUNT_ID</code> e garanta que o <strong>Service Principal do app seja gerente desses grupos de conta</strong> (ou admin de conta). Em dev sem acesso à conta, use <code>workspace</code>: a associação funciona, mas o grant do grupo não propaga no UC (grupo workspace-local não é principal do UC).</p>
       <div class="refs">
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/app-runtime" target="_blank" rel="noopener">Referência do app.yaml <span class="ar">↗</span></a>
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources" target="_blank" rel="noopener">Recursos da App <span class="ar">↗</span></a>
@@ -600,7 +606,7 @@ LAKEBASE_UC_CATALOG: "lakebase_marketplace"       <span class="c"># catálogo qu
         <div><h2>Permissões do app (service principal)</h2>
         <p class="sub">O app efetiva o acesso agindo como o SP — que precisa poder conceder.</p></div>
       </div>
-      <p class="narrow">Quando roda no Databricks Apps, o app tem a identidade de um <strong>service principal</strong> (SP). É esse SP que executa os grants — então ele precisa ter poder para conceder. São três frentes de permissão, cada uma por um motivo específico. O script <code>scripts/grant_app_sp.py &lt;sp_client_id&gt;</code> aplica o lado Unity Catalog e o warehouse automaticamente; abaixo estão os comandos equivalentes explícitos, para auditoria.</p>
+      <p class="narrow">Quando roda no Databricks Apps, o app tem a identidade de um <strong>service principal</strong> (SP). Na efetivação o SP faz duas coisas: <strong>provisiona o <code>GRANT</code> do grupo do ativo</strong> nos objetos UC (precisa de <code>MANAGE</code>) e <strong>associa o beneficiário ao grupo do ativo</strong> (precisa ser <strong>gerente desse grupo de conta</strong>). O script <code>scripts/grant_app_sp.py &lt;sp_client_id&gt;</code> aplica o lado Unity Catalog e o warehouse; o direito de gerente de grupo é concedido no console de conta (ou via API de conta). Abaixo, os comandos explícitos.</p>
       <p class="narrow"><b>Por que <code>MANAGE</code> no catálogo?</b> Para conceder <code>USE CATALOG</code> a um beneficiário, o próprio SP precisa poder administrar esse privilégio no catálogo — daí <code>MANAGE ON CATALOG</code>. Nos schemas alvo, <code>MANAGE</code> permite ao SP conceder e revogar <code>SELECT</code>/<code>MODIFY</code> em nome dos owners.</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">sql · Unity Catalog</span></div>
@@ -634,7 +640,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA gestao_acesso
       <p class="narrow">Cada frente cobre um trecho do fluxo: o <b>warehouse</b> (<code>CAN_USE</code>) é onde o SP executa o SQL de grant; o <b>role no Lakebase</b> dá ao SP um token OAuth para conectar no Postgres; e os grants no Postgres deixam o SP <em>ler</em> a governança (só <code>SELECT</code>) e <em>ler e escrever</em> o ciclo de vida em <code>gestao_acesso</code>. O <code>ALTER DEFAULT PRIVILEGES</code> garante que tabelas criadas no futuro já nasçam acessíveis ao SP.</p>
       <div class="callout warn">
         <span class="ico">grupos</span>
-        <p class="ct">Grants a grupo exigem <b>account groups</b> no Unity Catalog (D-009). Grupos criados via SCIM que são workspace-local resultam em <code>ERRO_EFETIVACAO</code> (tratável/reprocessável). Em produção, use grupos de conta reais.</p>
+        <p class="ct"><b>A concessão é por associação ao grupo do ativo</b> (não GRANT por usuário). Em produção esses grupos são <b>account groups</b> (<code>GROUPS_SCOPE=account</code>) — principais válidos no UC — e o <b>SP precisa ser gerente</b> deles para incluir/remover membros (ou admin de conta). Em dev sem conta (<code>workspace</code>), a associação funciona mas o grant do grupo não propaga no UC (grupo workspace-local não é principal — D-009); lá o SP precisa poder gerenciar grupos do workspace (ex.: estar em <code>admins</code>).</p>
       </div>
       <div class="refs">
         <span class="ref doc-int">scripts/grant_app_sp.py</span>
@@ -685,14 +691,16 @@ databricks apps deploy marketplace-dados \
 <span class="c"># Suite de integração apontando para a workspace</span>
 pytest tests/</code></pre>
       </div>
-      <p class="narrow">O endpoint <code>/health</code> confirma que o app subiu e conecta no banco. A suíte de integração exercita as regras de negócio e um fluxo ponta a ponta com grant/revoke reais. Depois, faça o teste que mais convence: percorra o fluxo no próprio app — <strong>solicitar → autorizar (gestor) → aprovar (owner) → efetivar</strong> — e confirme a concessão no Catalog Explorer ou por SQL, antes e depois:</p>
+      <p class="narrow">O endpoint <code>/health</code> confirma que o app subiu e conecta no banco. A suíte de integração exercita as regras/o modelo e dois fluxos ponta a ponta (associação real ao grupo do ativo). Depois, faça o teste que mais convence: percorra o fluxo no próprio app — <strong>solicitar → autorizar (gestor) → aprovar (owner do ativo) → efetivar</strong>. A efetivação <strong>inclui o beneficiário no grupo do ativo</strong>; confirme os dois lados — o grupo detém o grant no objeto, e o beneficiário é membro do grupo:</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">sql</span></div>
-<pre><code>SHOW GRANTS ON SCHEMA &lt;UC_CATALOG&gt;.&lt;schema_real&gt;;</code></pre>
+<pre><code><span class="c">-- o GRUPO do ativo detém SELECT no objeto (schema ou tabela, por nível)</span>
+SHOW GRANTS ON SCHEMA &lt;UC_CATALOG&gt;.&lt;schema_real&gt;;
+<span class="c">-- e o beneficiário é membro do grupo do ativo (via console/Account SCIM)</span></code></pre>
       </div>
       <div class="callout">
         <span class="ico">esperado</span>
-        <p class="ct">Após a efetivação, o beneficiário aparece com <code>SELECT</code> (e <code>USE SCHEMA</code>) no schema; após a revogação pelo owner, a linha some. Todo o ciclo é registrado na trilha de auditoria do app (RF-081..088).</p>
+        <p class="ct">Após a efetivação, o <b>grupo do ativo</b> aparece com <code>SELECT</code> (e <code>USE SCHEMA</code>) no objeto e o <b>beneficiário passa a ser membro</b> desse grupo — logo tem acesso. Após a revogação pelo owner, o beneficiário sai do grupo. Todo o ciclo é registrado na trilha de auditoria (RF-081..088). Em dev sem account groups, o grant do grupo não propaga; valida-se a associação.</p>
       </div>
       <div class="refs">
         <span class="ref doc-int">tests/</span>
@@ -712,8 +720,8 @@ pytest tests/</code></pre>
           <h4>Neste repositório</h4>
           <ul>
             <li><span class="path">docs/DEPLOY.md</span><br><span class="dsc">Runbook completo de deploy (dev e cliente).</span></li>
-            <li><span class="path">docs/DECISIONS.md</span><br><span class="dsc">Decisões de arquitetura (D-001..D-012).</span></li>
-            <li><span class="path">docs/01-modelo-dados.md</span><br><span class="dsc">Modelo de dados de governança + gestão de acesso.</span></li>
+            <li><span class="path">docs/DECISIONS.md</span><br><span class="dsc">Decisões de arquitetura (D-001..D-014).</span></li>
+            <li><span class="path">docs/ARQUITETURA-APP.md</span><br><span class="dsc">Rotas do app + de onde busca/grava os dados.</span></li>
             <li><span class="path">db/setup.py</span><br><span class="dsc">Provisionamento idempotente (<code>--mode</code>, <code>--seed</code>).</span></li>
             <li><span class="path">scripts/grant_app_sp.py</span><br><span class="dsc">Concede as permissões do SP do app.</span></li>
           </ul>

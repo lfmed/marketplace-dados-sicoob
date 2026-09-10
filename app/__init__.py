@@ -56,9 +56,11 @@ def _e_gestor(uid):
 
 
 def _e_owner(uid):
+    # Owner no modelo ativo-cêntrico = proprietário de algum ATIVO (ativo_proprietario),
+    # consistente com aprovação/acessos/auditoria (que checam ativo_proprietario).
     from app import db
     return db.query_one(
-        "SELECT 1 AS ok FROM governanca.iniciativa_proprietario WHERE id_usuario_aisn=%s AND bol_atual=true LIMIT 1",
+        "SELECT 1 AS ok FROM governanca.ativo_proprietario WHERE id_usuario_aisn=%s AND bol_atual=true LIMIT 1",
         (uid,)) is not None
 
 
