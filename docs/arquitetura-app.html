@@ -151,10 +151,10 @@ td code, th code{font-family:var(--mono)}
       <div class="section-head"><span class="section-num">1</span>
         <div><h2>Camadas</h2><p class="sub">Rota fina → serviço (regras + SQL) → fontes de dados.</p></div>
       </div>
-      <p>As <strong>rotas</strong> (<code>app/routes/*</code>) são finas: leem o formulário, resolvem o usuário, chamam um <strong>serviço</strong> e renderizam um template. É nos serviços (<code>app/services/*</code>) que os dados são lidos e gravados, por quatro caminhos:</p>
+      <p>As <strong>rotas</strong> (<code>app/routes/*</code>) são finas: leem o formulário, resolvem o usuário, chamam um <strong>serviço</strong> e renderizam um template. É nos serviços (<code>app/services/*</code>) que os dados são lidos e gravados, por três caminhos:</p>
       <ul>
         <li><strong>Lakebase</strong> (<code>app/db.py</code>, psycopg + OAuth 1h): schema <code>governanca</code> (leitura) e <code>gestao_acesso</code> (leitura/escrita).</li>
-        <li><strong>Unity Catalog</strong> (<code>scripts/uc_sql.run_uc_sql</code>, via SQL Warehouse): <code>GRANT/REVOKE</code> do <em>grupo do ativo</em> nos objetos.</li>
+        <li><strong>Unity Catalog</strong> (<code>app/db.run_uc_sql</code>, via SQL Warehouse): <code>GRANT/REVOKE</code> do <em>grupo do ativo</em> nos objetos.</li>
         <li><strong>Grupos SCIM</strong> (<code>app/db.get_groups_client()</code>): associar/desassociar o beneficiário no grupo do ativo — a concessão em si.</li>
       </ul>
     </section>
@@ -233,7 +233,7 @@ td code, th code{font-family:var(--mono)}
         <tbody>
           <tr><td><code>governanca.*</code><br><span style="color:var(--faint);font-size:.85rem">16 tabelas</span></td><td><code>app/db.py</code> (Postgres)</td><td>Catálogo/modelo: domínios, subdomínios, iniciativas, camadas, ICAs, tabelas, usuários, hierarquia, grupos, <b>ativos</b> e owners. Espelho do Delta (Motor) via synced tables (prod) / sync controlado (dev).</td><td><span class="src-chip r">só leitura</span></td></tr>
           <tr><td><code>gestao_acesso.*</code></td><td><code>app/db.py</code> (Postgres)</td><td>Estado operacional: solicitação → autorização → aprovação → acesso → execução técnica → revogação → eventos. Nativo no Lakebase.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
-          <tr><td>Unity Catalog</td><td><code>run_uc_sql</code> (SQL Warehouse)</td><td>Alvo dos <code>GRANT/REVOKE</code> reais — concedidos ao <b>grupo do ativo</b> nos objetos resolvidos (provisionamento).</td><td><span class="src-chip w">escrita (DCL)</span></td></tr>
+          <tr><td>Unity Catalog</td><td><code>db.run_uc_sql</code> (SQL Warehouse)</td><td>Alvo dos <code>GRANT/REVOKE</code> reais — concedidos ao <b>grupo do ativo</b> nos objetos resolvidos (provisionamento).</td><td><span class="src-chip w">escrita (DCL)</span></td></tr>
           <tr><td>Grupos (SCIM)</td><td><code>get_groups_client()</code><br><span style="color:var(--faint);font-size:.85rem">Account/Workspace</span></td><td>A concessão em si: incluir/remover o beneficiário (usuário ou grupo exploratório) no <b>grupo do ativo</b>.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
         </tbody>
       </table></div>

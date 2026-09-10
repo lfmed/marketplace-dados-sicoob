@@ -20,7 +20,7 @@ Serviços (app/services/*) ── regras de negócio + SQL. É AQUI que os dados
    ├─▶ Lakebase (Postgres)         via app/db.py  (psycopg, OAuth 1h)
    │      ├─ schema governanca      → LEITURA (espelho do Motor)
    │      └─ schema gestao_acesso   → LEITURA/ESCRITA (estado do app)
-   ├─▶ Unity Catalog               via scripts/uc_sql.run_uc_sql (SQL Warehouse)
+   ├─▶ Unity Catalog               via app/db.run_uc_sql (SQL Warehouse)
    │      └─ GRANT/REVOKE do GRUPO DO ATIVO nos objetos (provisionamento)
    └─▶ Grupos SCIM                 via app/db.get_groups_client()
           └─ associar/desassociar o beneficiário no grupo do ativo (a CONCESSÃO)
@@ -52,7 +52,7 @@ flowchart TD
 |---|---|---|---|
 | **`governanca.*`** (16 tabelas do modelo) | `app/db.py` (Postgres) | **Catálogo/modelo**: domínios, subdomínios, iniciativas, camadas, ICAs, tabelas, usuários, hierarquia, grupos, **ativos** e **owners**. Espelho do Delta (Motor de Governança) via synced tables (prod) / sync controlado (dev). | **Somente leitura** pelo app |
 | **`gestao_acesso.*`** | `app/db.py` (Postgres) | **Estado operacional**: solicitação → autorização → aprovação → acesso → execução técnica → revogação → eventos. Nativo no Lakebase. | **Leitura e escrita** |
-| **Unity Catalog** | `scripts/uc_sql.run_uc_sql` (SQL Warehouse) | Alvo dos `GRANT/REVOKE` reais — concedidos ao **grupo do ativo** nos objetos resolvidos (provisionamento). | Escrita (DDL/DCL) |
+| **Unity Catalog** | `app/db.run_uc_sql` (SQL Warehouse) | Alvo dos `GRANT/REVOKE` reais — concedidos ao **grupo do ativo** nos objetos resolvidos (provisionamento). | Escrita (DDL/DCL) |
 | **Grupos (SCIM)** | `app/db.get_groups_client()` → AccountClient (prod) ou WorkspaceClient (dev) | **A concessão em si**: incluir/remover o beneficiário (usuário ou grupo exploratório) no **grupo do ativo**. | Leitura/escrita SCIM |
 
 > **`governanca` é espelho.** O app nunca grava em `governanca`; ela vem do Motor do
