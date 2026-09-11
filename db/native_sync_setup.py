@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """SYNCED TABLES NATIVAS (Delta -> Lakebase) — modo produção/cliente (D-010/D-011).
 
-Registra o banco Lakebase como catálogo UC e cria uma synced table por tabela de
-governança (fonte Delta), materializando o schema `governanca` (somente-leitura) no
-Lakebase. Parametrizado por app/config.py e idempotente.
+Registra o banco Lakebase como catálogo UC e cria uma synced table por tabela do Motor
+(fonte Delta em GOV_CATALOG), materializando os schemas `governanca` e `gestao_acesso`
+(somente-leitura) no Lakebase. Parametrizado por app/config.py e idempotente.
 
 Pré-requisito: o executor precisa de CREATE CATALOG no metastore (em dev o usuário não
 tem — ver D-011; por isso o protótipo usa db/sync/sync_governanca.py).
@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.config import config  # noqa: E402
 from app.db import get_client  # noqa: E402
 from scripts.uc_sql import run_sql  # noqa: E402
-from db.seed.gov_schema import GOV_TABLES, GOV_SCHEMA_UC  # noqa: E402
+from db.seed.gov_schema import GOV_TABLES, DELTA_SCHEMAS  # noqa: E402
 
 LAKEBASE_UC_CATALOG = os.getenv("LAKEBASE_UC_CATALOG", "lakebase_marketplace")
 CKPT_SCHEMA = os.getenv("SYNC_CKPT_SCHEMA", "marketplace_sync_ckpt")
@@ -51,12 +51,14 @@ def register_catalog():
 
 
 def create_synced_tables():
-    cat = config.UC_CATALOG
-    # schema de checkpoints do pipeline (catálogo standard)
+    # Origem Delta do Motor: catálogo parametrizável (cliente = plataforma) + os schemas
+    # governanca/gestao_acesso. Destino: mesmos schemas no catálogo UC do Lakebase.
+    cat = config.GOV_CATALOG
+    # schema de checkpoints do pipeline
     run_sql(f"CREATE SCHEMA IF NOT EXISTS {cat}.{CKPT_SCHEMA}")
-    for tabela, cols, pk in GOV_TABLES:
-        src = f"{cat}.{GOV_SCHEMA_UC}.{tabela}"
-        dst = f"{LAKEBASE_UC_CATALOG}.governanca.{tabela}"
+    for schema, tabela, cols, pk in GOV_TABLES:
+        src = f"{cat}.{schema}.{tabela}"
+        dst = f"{LAKEBASE_UC_CATALOG}.{schema}.{tabela}"
         try:
             _api("GET", f"/api/2.0/postgres/synced_tables/{dst}")
             print(f"  synced table {dst} já existe")
@@ -77,7 +79,7 @@ def create_synced_tables():
 def main():
     print("== Registrando banco Lakebase no UC ==")
     register_catalog()
-    print("== Criando synced tables (governanca) ==")
+    print(f"== Criando synced tables ({', '.join(DELTA_SCHEMAS)}) ==")
     create_synced_tables()
     print("Synced tables nativas configuradas.")
 

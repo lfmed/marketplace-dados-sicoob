@@ -151,11 +151,11 @@ td code, th code{font-family:var(--mono)}
       <div class="section-head"><span class="section-num">1</span>
         <div><h2>Camadas</h2><p class="sub">Rota fina → serviço (regras + SQL) → fontes de dados.</p></div>
       </div>
-      <p>As <strong>rotas</strong> (<code>app/routes/*</code>) são finas: leem o formulário, resolvem o usuário, chamam um <strong>serviço</strong> e renderizam um template. É nos serviços (<code>app/services/*</code>) que os dados são lidos e gravados, por três caminhos:</p>
+      <p>As <strong>rotas</strong> (<code>app/routes/*</code>) são finas: leem o formulário, resolvem o usuário, chamam um <strong>serviço</strong> e renderizam um template. É nos serviços (<code>app/services/*</code>) que os dados são lidos e gravados. Modelo oficial: catálogo Delta <code>plataforma</code> e <strong>3 schemas</strong> no Lakebase (parametrizáveis via <code>app/schemas.py</code> ← config):</p>
       <ul>
-        <li><strong>Lakebase</strong> (<code>app/db.py</code>, psycopg + OAuth 1h): schema <code>governanca</code> (leitura) e <code>gestao_acesso</code> (leitura/escrita).</li>
-        <li><strong>Unity Catalog</strong> (<code>app/db.run_uc_sql</code>, via SQL Warehouse): <code>GRANT/REVOKE</code> do <em>grupo do ativo</em> nos objetos.</li>
+        <li><strong>Lakebase</strong> (<code>app/db.py</code>, psycopg + OAuth 1h): <code>governanca</code> (taxonomia, <em>leitura</em>) e <code>gestao_acesso</code> (referência do Motor: ativos, grupos, owners — <em>leitura</em>) são mirrors do Motor; <code>marketplace_app</code> (workflow do app — <em>leitura/escrita</em>).</li>
         <li><strong>Grupos SCIM</strong> (<code>app/db.get_groups_client()</code>): associar/desassociar o beneficiário no grupo do ativo — a concessão em si.</li>
+        <li><strong>Unity Catalog</strong> (<code>app/db.run_uc_sql</code>, via SQL Warehouse): garante o <code>GRANT</code> do grupo do ativo nos objetos — <em>só em dev</em> (<code>PROVISION_GROUP_GRANT</code>); em produção o Motor já concede.</li>
       </ul>
     </section>
 
@@ -191,35 +191,36 @@ td code, th code{font-family:var(--mono)}
           <line class="dg-line" x1="388" y1="233" x2="428" y2="233" marker-end="url(#ah)"/>
 
           <!-- fan-out -->
-          <text class="dg-eyebrow" x="700" y="60">DADOS · LAKEBASE</text>
-          <rect class="dg-box src" x="700" y="70" width="284" height="88" rx="12"/>
-          <text class="dg-title" x="716" y="98">Lakebase · Postgres</text>
-          <text class="dg-sub" x="716" y="120">governanca — espelho (lê)</text>
-          <text class="dg-sub" x="716" y="138">gestao_acesso — estado (lê/grava)</text>
+          <text class="dg-eyebrow" x="700" y="52">DADOS · LAKEBASE (3 schemas)</text>
+          <rect class="dg-box src" x="700" y="62" width="284" height="104" rx="12"/>
+          <text class="dg-title" x="716" y="88">Lakebase · Postgres</text>
+          <text class="dg-sub" x="716" y="110">governanca — mirror (lê)</text>
+          <text class="dg-sub" x="716" y="128">gestao_acesso — mirror: ativos/grupos (lê)</text>
+          <text class="dg-sub" x="716" y="146">marketplace_app — workflow (lê/grava)</text>
 
-          <text class="dg-eyebrow" x="700" y="196">EFETIVAÇÃO · UC</text>
-          <rect class="dg-box" x="700" y="206" width="284" height="70" rx="12"/>
-          <text class="dg-title" x="716" y="234">Unity Catalog (warehouse)</text>
-          <text class="dg-sub" x="716" y="256">GRANT do grupo do ativo nos objetos</text>
+          <text class="dg-eyebrow" x="700" y="200">CONCESSÃO · SCIM</text>
+          <rect class="dg-box hero" x="700" y="210" width="284" height="82" rx="12"/>
+          <text class="dg-title" x="716" y="238">Grupos (account / workspace)</text>
+          <text class="dg-sub" x="716" y="260">associa o beneficiário</text>
+          <text class="dg-sub" x="716" y="278">ao grupo do ativo</text>
 
-          <text class="dg-eyebrow" x="700" y="314">CONCESSÃO · SCIM</text>
-          <rect class="dg-box" x="700" y="324" width="284" height="82" rx="12"/>
-          <text class="dg-title" x="716" y="352">Grupos (account / workspace)</text>
-          <text class="dg-sub" x="716" y="374">associa o beneficiário</text>
-          <text class="dg-sub" x="716" y="392">ao grupo do ativo</text>
+          <text class="dg-eyebrow" x="700" y="330">GRANT DO GRUPO · UC (só dev)</text>
+          <rect class="dg-box" x="700" y="340" width="284" height="66" rx="12"/>
+          <text class="dg-title" x="716" y="368">Unity Catalog (warehouse)</text>
+          <text class="dg-sub" x="716" y="390">prod: o Motor já concede o grant</text>
 
-          <line class="dg-line" x1="608" y1="220" x2="696" y2="120" marker-end="url(#ah)"/>
-          <text class="dg-lbl" x="648" y="158">lê / grava</text>
-          <line class="dg-line accent" x1="608" y1="233" x2="696" y2="240" marker-end="url(#ahA)"/>
-          <text class="dg-lbl on" x="652" y="228">grant grupo</text>
-          <line class="dg-line accent" x1="608" y1="246" x2="696" y2="360" marker-end="url(#ahA)"/>
-          <text class="dg-lbl on" x="650" y="322">associa</text>
+          <line class="dg-line" x1="608" y1="220" x2="696" y2="114" marker-end="url(#ah)"/>
+          <text class="dg-lbl" x="648" y="150">lê / grava</text>
+          <line class="dg-line accent" x1="608" y1="233" x2="696" y2="245" marker-end="url(#ahA)"/>
+          <text class="dg-lbl on" x="652" y="228">associa</text>
+          <line class="dg-line" x1="608" y1="246" x2="696" y2="370" marker-end="url(#ah)"/>
+          <text class="dg-lbl" x="650" y="330">grant (dev)</text>
         </svg>
       </div>
       <ol class="legend">
-        <li>O usuário navega o catálogo de <b>ativos</b> e pede acesso; a rota chama o serviço.</li>
-        <li>O serviço lê a governança (espelho) e grava o ciclo de vida em <code>gestao_acesso</code>.</li>
-        <li>Aprovado pelo owner, o <b>worker</b> inclui o beneficiário no <b>grupo do ativo</b> (SCIM) e provisiona o <code>GRANT</code> do grupo nos objetos (UC). Revogar = remover a associação.</li>
+        <li>O usuário navega o catálogo de <b>ativos</b> (em <code>gestao_acesso</code>) e pede acesso; a rota chama o serviço.</li>
+        <li>O serviço lê os mirrors (<code>governanca</code> + <code>gestao_acesso</code>) e grava o ciclo de vida em <code>marketplace_app</code>.</li>
+        <li>Aprovado pelo owner, o <b>worker</b> inclui o beneficiário no <b>grupo do ativo</b> (SCIM). Em produção o grupo já detém o grant (Motor); em dev o app provisiona o <code>GRANT</code> best-effort. Revogar = remover a associação.</li>
       </ol>
     </section>
 
@@ -231,13 +232,14 @@ td code, th code{font-family:var(--mono)}
       <div class="tablewrap"><table>
         <thead><tr><th>Fonte</th><th>Acesso</th><th>Papel</th><th>R/W</th></tr></thead>
         <tbody>
-          <tr><td><code>governanca.*</code><br><span style="color:var(--faint);font-size:.85rem">16 tabelas</span></td><td><code>app/db.py</code> (Postgres)</td><td>Catálogo/modelo: domínios, subdomínios, iniciativas, camadas, ICAs, tabelas, usuários, hierarquia, grupos, <b>ativos</b> e owners. Espelho do Delta (Motor) via synced tables (prod) / sync controlado (dev).</td><td><span class="src-chip r">só leitura</span></td></tr>
-          <tr><td><code>gestao_acesso.*</code></td><td><code>app/db.py</code> (Postgres)</td><td>Estado operacional: solicitação → autorização → aprovação → acesso → execução técnica → revogação → eventos. Nativo no Lakebase.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
-          <tr><td>Unity Catalog</td><td><code>db.run_uc_sql</code> (SQL Warehouse)</td><td>Alvo dos <code>GRANT/REVOKE</code> reais — concedidos ao <b>grupo do ativo</b> nos objetos resolvidos (provisionamento).</td><td><span class="src-chip w">escrita (DCL)</span></td></tr>
-          <tr><td>Grupos (SCIM)</td><td><code>get_groups_client()</code><br><span style="color:var(--faint);font-size:.85rem">Account/Workspace</span></td><td>A concessão em si: incluir/remover o beneficiário (usuário ou grupo exploratório) no <b>grupo do ativo</b>.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
+          <tr><td><code>governanca</code> <span style="color:var(--faint);font-size:.85rem">(GOV)</span></td><td><code>app/db.py</code> (Postgres)</td><td>Taxonomia do Motor de Governança: domínio/subdomínio/iniciativa/camada/ambiente, as combinações <code>*_camada_ambiente</code>, <b><code>tabela_aisn</code></b> (único com o alvo UC), <code>usuario_aisn</code> e proprietários. Mirror do Delta via synced tables (prod) / sync (dev).</td><td><span class="src-chip r">só leitura</span></td></tr>
+          <tr><td><code>gestao_acesso</code> <span style="color:var(--faint);font-size:.85rem">(ACC)</span></td><td><code>app/db.py</code> (Postgres)</td><td>Referência do Motor de Acesso: <code>hierarquia_usuario</code>, <code>grupo_acesso</code>, <code>grupo_acesso_membro</code>, <b><code>ativo_aisn</code></b> (driver, com <code>nome_grupo_ativo</code>) e <code>ativo_proprietario</code>. Mirror do Delta.</td><td><span class="src-chip r">só leitura</span></td></tr>
+          <tr><td><code>marketplace_app</code> <span style="color:var(--faint);font-size:.85rem">(APP)</span></td><td><code>app/db.py</code> (Postgres)</td><td>Workflow do App: solicitação → autorização → aprovação → acesso → execução técnica → revogação → eventos. Nativo no Lakebase.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
+          <tr><td>Grupos (SCIM)</td><td><code>get_groups_client()</code><br><span style="color:var(--faint);font-size:.85rem">Account/Workspace</span></td><td>A concessão em si: incluir/remover o beneficiário (usuário ou grupo do usuário) no <b>grupo do ativo</b>.</td><td><span class="src-chip w">leitura/escrita</span></td></tr>
+          <tr><td>Unity Catalog</td><td><code>db.run_uc_sql</code> (SQL Warehouse)</td><td><b>Só em dev</b> (<code>PROVISION_GROUP_GRANT</code>): garante o <code>GRANT</code> do grupo do ativo nos objetos resolvidos via <code>tabela_aisn</code>. Em produção o Motor já concedeu.</td><td><span class="src-chip w">escrita (dev)</span></td></tr>
         </tbody>
       </table></div>
-      <div class="callout"><span class="ico">nota</span><p class="ct"><b><code>governanca</code> é espelho.</b> O app nunca grava nela — vem do Motor do cliente (Delta → synced tables). Só <code>gestao_acesso</code> é transacional. Ver <code>DECISIONS.md</code> D-010/D-011.</p></div>
+      <div class="callout"><span class="ico">nota</span><p class="ct"><b><code>governanca</code> e <code>gestao_acesso</code> são mirrors</b> (somente leitura) do Motor do cliente (Delta em <code>plataforma.*</code> → synced tables). Só <b><code>marketplace_app</code></b> é transacional/do app. Ver <code>DECISIONS.md</code> D-010/D-011/D-015.</p></div>
     </section>
 
     <!-- 4 -->
@@ -245,7 +247,7 @@ td code, th code{font-family:var(--mono)}
       <div class="section-head"><span class="section-num">4</span>
         <div><h2>Identidade</h2><p class="sub"><code>app/identity.py</code> — quem é o usuário corrente.</p></div>
       </div>
-      <p><code>usuario_atual()</code> resolve por precedência: <strong>(1) proxy</strong> (dev/demo — seletor "atuar como"); <strong>(2) SSO</strong> (produção — header <code>X-Forwarded-Email</code>); <strong>(3) fallback</strong> <code>DEV_FALLBACK_EMAIL</code>. O e-mail é casado em <code>governanca.usuario_aisn</code>. Os papéis (<code>gestor</code>, <code>owner</code>) e os grupos do usuário são injetados em todos os templates por um <code>context_processor</code> em <code>app/__init__.py</code> — <b>gestor</b> = existe em <code>hierarquia_usuario</code>; <b>owner</b> = existe em <code>ativo_proprietario</code>.</p>
+      <p><code>usuario_atual()</code> resolve por precedência: <strong>(1) proxy</strong> (dev/demo — seletor "atuar como"); <strong>(2) SSO</strong> (produção — header <code>X-Forwarded-Email</code>); <strong>(3) fallback</strong> <code>DEV_FALLBACK_EMAIL</code>. O e-mail é casado em <code>governanca.usuario_aisn</code>. Os papéis (<code>gestor</code>, <code>owner</code>) e os grupos do usuário são injetados em todos os templates por um <code>context_processor</code> em <code>app/__init__.py</code> — <b>gestor</b> = existe em <code>gestao_acesso.hierarquia_usuario</code>; <b>owner</b> = existe em <code>gestao_acesso.ativo_proprietario</code>.</p>
     </section>
 
     <!-- 5 -->
@@ -253,7 +255,7 @@ td code, th code{font-family:var(--mono)}
       <div class="section-head"><span class="section-num">5</span>
         <div><h2>Rotas</h2><p class="sub">O que cada rota faz e de onde busca/grava os dados.</p></div>
       </div>
-      <p class="narrow">Legenda de fontes: <span class="src-chip r">G</span> = <code>governanca.*</code> (leitura) · <span class="src-chip w">A</span> = <code>gestao_acesso.*</code> · <span class="src-chip w">UC</span> = Unity Catalog · <span class="src-chip w">SCIM</span> = grupos.</p>
+      <p class="narrow">Legenda de fontes: <span class="src-chip r">G</span> = <code>governanca</code> (leitura) · <span class="src-chip r">A</span> = <code>gestao_acesso</code> (referência, leitura) · <span class="src-chip w">APP</span> = <code>marketplace_app</code> (workflow) · <span class="src-chip w">SCIM</span> = grupos · UC = Unity Catalog (só dev).</p>
 
       <h3><code>main</code> · app/routes/main.py</h3>
       <div class="tablewrap"><table>
@@ -269,7 +271,7 @@ td code, th code{font-family:var(--mono)}
       <div class="tablewrap"><table>
         <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
         <tbody>
-          <tr><td><span class="mth get">GET</span> <code>/catalogo</code></td><td>lista <b>ativos</b> (driver = <code>ativo_aisn</code>); filtros nível/domínio/subdomínio/busca; breadcrumb derivado polimorficamente</td><td><span class="src-chip r">G</span> <code>ativo_aisn</code> + relações + <code>grupo_acesso</code> + <code>ativo_proprietario</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/catalogo</code></td><td>lista <b>ativos</b> (driver = <code>ativo_aisn</code>); filtros nível/domínio/subdomínio/busca; breadcrumb derivado polimorficamente</td><td><span class="src-chip r">A</span> <code>ativo_aisn</code> (nome_grupo_ativo) + <code>ativo_proprietario</code>; <span class="src-chip r">G</span> relações + <code>usuario_aisn</code></td></tr>
           <tr><td><span class="mth get">GET</span> <code>/ativo/&lt;id&gt;</code></td><td>detalhe: owners, grupo, <b>escopo UC resolvido</b> e formulário de solicitação</td><td><span class="src-chip r">G</span> idem + <code>grupo_acesso_membro</code></td></tr>
         </tbody>
       </table></div>
@@ -278,10 +280,10 @@ td code, th code{font-family:var(--mono)}
       <div class="tablewrap"><table>
         <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
         <tbody>
-          <tr><td><span class="mth post">POST</span> <code>/solicitar</code></td><td>cria solicitação p/ um ativo (nominal/grupo); valida RN-005/007/010/013/014</td><td><span class="src-chip r">G</span> ativo, owners, grupos, hierarquia · <span class="src-chip w">A</span> grava <code>solicitacao_acesso</code> + <code>evento</code></td></tr>
-          <tr><td><span class="mth get">GET</span> <code>/minhas-solicitacoes</code></td><td>solicitações do usuário + status do acesso</td><td><span class="src-chip w">A</span> <code>solicitacao_acesso</code>, <code>acesso</code> · <span class="src-chip r">G</span> ativo</td></tr>
-          <tr><td><span class="mth get">GET</span> <code>/solicitacao/&lt;id&gt;</code></td><td>detalhe + escopo UC + histórico + etapa pendente</td><td><span class="src-chip w">A</span> solicitação, acesso, eventos · <span class="src-chip r">G</span> ativo, owners</td></tr>
-          <tr><td><span class="mth post">POST</span> <code>/solicitacao/&lt;id&gt;/cancelar</code></td><td>cancela (RN-011)</td><td><span class="src-chip w">A</span> <code>solicitacao_acesso</code>, <code>evento</code></td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/solicitar</code></td><td>cria solicitação p/ um ativo (nominal/grupo); valida RN-005/007/010/013/014</td><td><span class="src-chip r">A</span> ativo, owners, grupos, hierarquia · <span class="src-chip r">G</span> usuario · <span class="src-chip w">APP</span> grava <code>solicitacao_acesso</code> + <code>evento</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/minhas-solicitacoes</code></td><td>solicitações do usuário + status do acesso</td><td><span class="src-chip w">APP</span> <code>solicitacao_acesso</code>, <code>acesso</code> · <span class="src-chip r">A</span> ativo</td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/solicitacao/&lt;id&gt;</code></td><td>detalhe + escopo UC + histórico + etapa pendente</td><td><span class="src-chip w">APP</span> solicitação, acesso, eventos · <span class="src-chip r">A</span> ativo, owners</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/solicitacao/&lt;id&gt;/cancelar</code></td><td>cancela (RN-011)</td><td><span class="src-chip w">APP</span> <code>solicitacao_acesso</code>, <code>evento</code></td></tr>
         </tbody>
       </table></div>
 
@@ -289,9 +291,9 @@ td code, th code{font-family:var(--mono)}
       <div class="tablewrap"><table>
         <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
         <tbody>
-          <tr><td><span class="mth get">GET</span> <code>/aprovacoes</code></td><td>fila do gestor (hierarquia) + fila do owner (do ativo)</td><td><span class="src-chip w">A</span> solicitação · <span class="src-chip r">G</span> hierarquia, <code>ativo_proprietario</code></td></tr>
-          <tr><td><span class="mth post">POST</span> <code>/aprovacoes/&lt;id&gt;/gestor</code></td><td>autoriza/reprova (RN-013/014)</td><td><span class="src-chip w">A</span> <code>autorizacao_hierarquica</code>, solicitação, evento</td></tr>
-          <tr><td><span class="mth post">POST</span> <code>/aprovacoes/&lt;id&gt;/owner</code></td><td>aprova/reprova (RN-006/017); se aprova, <b>cria o acesso</b></td><td><span class="src-chip r">G</span> <code>ativo_proprietario</code> · <span class="src-chip w">A</span> <code>aprovacao_owner</code>, <code>acesso</code>, <code>execucao_tecnica</code> (PENDENTE), evento</td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/aprovacoes</code></td><td>fila do gestor (hierarquia) + fila do owner (do ativo)</td><td><span class="src-chip w">APP</span> solicitação · <span class="src-chip r">A</span> hierarquia, <code>ativo_proprietario</code>, ativo</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/aprovacoes/&lt;id&gt;/gestor</code></td><td>autoriza/reprova (RN-013/014)</td><td><span class="src-chip w">APP</span> <code>autorizacao_hierarquica</code>, solicitação, evento</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/aprovacoes/&lt;id&gt;/owner</code></td><td>aprova/reprova (RN-006/017); se aprova, <b>cria o acesso</b></td><td><span class="src-chip r">A</span> <code>ativo_proprietario</code> · <span class="src-chip w">APP</span> <code>aprovacao_owner</code>, <code>acesso</code>, <code>execucao_tecnica</code> (PENDENTE), evento</td></tr>
         </tbody>
       </table></div>
 
@@ -299,10 +301,10 @@ td code, th code{font-family:var(--mono)}
       <div class="tablewrap"><table>
         <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
         <tbody>
-          <tr><td><span class="mth get">GET</span> <code>/meus-acessos</code></td><td>acessos do usuário (nominal + por grupo) + acesso padrão de owner (RN-016/025)</td><td><span class="src-chip w">A</span> <code>acesso</code> · <span class="src-chip r">G</span> ativo, <code>grupo_acesso_membro</code></td></tr>
-          <tr><td><span class="mth get">GET</span> <code>/acessos-owner</code></td><td>acessos concedidos no escopo do owner</td><td><span class="src-chip w">A</span> <code>acesso</code> · <span class="src-chip r">G</span> ativo, <code>ativo_proprietario</code></td></tr>
-          <tr><td><span class="mth post">POST</span> <code>/acesso/&lt;id&gt;/revogar</code></td><td>solicita revogação (RN-026)</td><td><span class="src-chip r">G</span> <code>ativo_proprietario</code> · <span class="src-chip w">A</span> <code>revogacao_acesso</code>, <code>execucao_tecnica</code> (PENDENTE), evento</td></tr>
-          <tr><td><span class="mth post">POST</span> <code>/acesso/&lt;id&gt;/reprocessar</code></td><td>reenfileira execução (RF-079/080)</td><td><span class="src-chip w">A</span> <code>execucao_tecnica</code> (PENDENTE)</td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/meus-acessos</code></td><td>acessos do usuário (nominal + por grupo) + acesso padrão de owner (RN-016/025)</td><td><span class="src-chip w">APP</span> <code>acesso</code> · <span class="src-chip r">A</span> ativo, <code>grupo_acesso_membro</code>, <code>ativo_proprietario</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/acessos-owner</code></td><td>acessos concedidos no escopo do owner</td><td><span class="src-chip w">APP</span> <code>acesso</code> · <span class="src-chip r">A</span> ativo, <code>ativo_proprietario</code>, <code>grupo_acesso</code></td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/acesso/&lt;id&gt;/revogar</code></td><td>solicita revogação (RN-026)</td><td><span class="src-chip r">A</span> <code>ativo_proprietario</code> · <span class="src-chip w">APP</span> <code>revogacao_acesso</code>, <code>execucao_tecnica</code> (PENDENTE), evento</td></tr>
+          <tr><td><span class="mth post">POST</span> <code>/acesso/&lt;id&gt;/reprocessar</code></td><td>reenfileira execução (RF-079/080)</td><td><span class="src-chip w">APP</span> <code>execucao_tecnica</code> (PENDENTE)</td></tr>
         </tbody>
       </table></div>
 
@@ -310,12 +312,12 @@ td code, th code{font-family:var(--mono)}
       <div class="tablewrap"><table>
         <thead><tr><th>Método · rota</th><th>Faz</th><th>Fontes</th></tr></thead>
         <tbody>
-          <tr><td><span class="mth get">GET</span> <code>/auditoria</code></td><td>trilha restrita ao escopo do owner (RF-088)</td><td><span class="src-chip w">A</span> solicitação, acesso · <span class="src-chip r">G</span> ativo, <code>ativo_proprietario</code></td></tr>
-          <tr><td><span class="mth get">GET</span> <code>/resumo-dominio</code></td><td>agregados por domínio (domínio derivado polimorficamente)</td><td><span class="src-chip r">G</span> <code>dominio_informacao</code>, <code>ativo_aisn</code> · <span class="src-chip w">A</span> acesso, solicitação</td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/auditoria</code></td><td>trilha restrita ao escopo do owner (RF-088)</td><td><span class="src-chip w">APP</span> solicitação, acesso · <span class="src-chip r">A</span> ativo, <code>ativo_proprietario</code></td></tr>
+          <tr><td><span class="mth get">GET</span> <code>/resumo-dominio</code></td><td>agregados por domínio (domínio derivado polimorficamente)</td><td><span class="src-chip r">G</span> <code>dominio_informacao</code> · <span class="src-chip r">A</span> <code>ativo_aisn</code> · <span class="src-chip w">APP</span> acesso, solicitação</td></tr>
         </tbody>
       </table></div>
 
-      <div class="callout"><span class="ico">worker</span><p class="ct"><b>Background worker</b> (<code>app/worker.py</code>, poll ~15s, advisory lock p/ múltiplos gunicorn) → <code>access_service.processar_execucoes_pendentes</code> → <code>membership_executor.executar</code>: lê <code>execucao_tecnica</code> PENDENTE e efetiva a associação (SCIM) + provisiona o GRANT (UC).</p></div>
+      <div class="callout"><span class="ico">worker</span><p class="ct"><b>Background worker</b> (<code>app/worker.py</code>, poll ~15s, advisory lock p/ múltiplos gunicorn) → <code>access_service.processar_execucoes_pendentes</code> → <code>membership_executor.executar</code>: lê <code>execucao_tecnica</code> PENDENTE (em <code>marketplace_app</code>) e efetiva a associação (SCIM); em dev também provisiona o GRANT do grupo (UC).</p></div>
     </section>
 
     <!-- 6 -->
@@ -323,17 +325,17 @@ td code, th code{font-family:var(--mono)}
       <div class="section-head"><span class="section-num">6</span>
         <div><h2>O ativo como driver (polimórfico)</h2><p class="sub"><code>id_ativo_aisn</code> É a PK da origem; <code>cod_tipo_ativo</code> diz onde resolver.</p></div>
       </div>
-      <p class="narrow">Não há colunas denormalizadas: catálogo/schema/tabela/domínio/subdomínio são <strong>navegados nas relações</strong>. <code>app/services/ativo_scope.py</code> centraliza a resolução e um <code>LEFT JOIN</code> polimórfico reutilizado por todos os serviços (reconstrói breadcrumb, alvo UC e <code>tipo_label</code> com os mesmos aliases — por isso os templates não mudaram).</p>
+      <p class="narrow">Sem colunas de UC denormalizadas: <b>o alvo concreto vive só em <code>tabela_aisn</code></b>, então o escopo é sempre alcançado através dela. O breadcrumb (domínio/subdomínio) e o <code>tipo_label</code> são <strong>navegados nas relações</strong> por um <code>LEFT JOIN</code> polimórfico em <code>app/services/ativo_scope.py</code>, reutilizado por todos os serviços com os mesmos aliases (por isso os templates não mudaram).</p>
       <div class="tablewrap"><table>
-        <thead><tr><th><code>cod_tipo_ativo</code></th><th>Origem (<code>id_ativo_aisn</code> = PK dela)</th><th>Escopo UC resolvido</th></tr></thead>
+        <thead><tr><th><code>cod_tipo_ativo</code></th><th>Origem (<code>id_ativo_aisn</code> = PK dela)</th><th>Escopo UC (via <code>tabela_aisn</code>)</th></tr></thead>
         <tbody>
-          <tr><td><code>1</code> = ICA</td><td><code>iniciativa_camada_ambiente</code></td><td>1 schema (<code>ON SCHEMA</code>)</td></tr>
+          <tr><td><code>1</code> = ICA</td><td><code>iniciativa_camada_ambiente</code></td><td>schemas DISTINTOS das tabelas da ICA (<code>ON SCHEMA</code>)</td></tr>
           <tr><td><code>2</code> = TABELA</td><td><code>tabela_aisn</code></td><td>1 tabela (<code>ON TABLE</code>)</td></tr>
-          <tr><td><code>3</code> = SUBDOMINIO</td><td><code>subdominio_informacao</code></td><td>N schemas (expande)</td></tr>
-          <tr><td><code>4</code> = DOMINIO</td><td><code>dominio_informacao</code></td><td>N schemas (expande)</td></tr>
+          <tr><td><code>3</code> = SUBDOMINIO</td><td><code>subdominio_camada_ambiente</code></td><td>N schemas (join camada+ambiente → tabelas)</td></tr>
+          <tr><td><code>4</code> = DOMINIO</td><td><code>dominio_camada_ambiente</code></td><td>N schemas (join camada+ambiente → tabelas)</td></tr>
         </tbody>
       </table></div>
-      <p class="narrow">O <b>owner</b> vem de <code>ativo_proprietario</code>; o <b>grupo do ativo</b> de <code>ativo_aisn.id_grupo_acesso → grupo_acesso</code> (1 grupo por ativo, <em>least-privilege</em>).</p>
+      <p class="narrow">O <b>owner</b> vem de <code>gestao_acesso.ativo_proprietario</code>; o <b>grupo do ativo</b> está embutido em <code>gestao_acesso.ativo_aisn.nome_grupo_ativo</code> (com FK para <code>grupo_acesso</code>).</p>
     </section>
 
     <!-- 7 -->
@@ -343,7 +345,7 @@ td code, th code{font-family:var(--mono)}
       </div>
       <ol class="legend">
         <li><code>decidir_aprovacao_owner</code> cria <code>acesso</code> (AGUARDANDO) + <code>execucao_tecnica</code> PENDENTE.</li>
-        <li>O worker chama <code>membership_executor.executar</code>: resolve o grupo do ativo; <b>concessão</b> → inclui o beneficiário (nominal→usuário; grupo→grupo exploratório aninhado) via SCIM e provisiona (best-effort) o <code>GRANT</code> do grupo nos objetos; <b>revogação</b> → remove o membro.</li>
+        <li>O worker chama <code>membership_executor.executar</code>: resolve o grupo do ativo (<code>nome_grupo_ativo</code>); <b>concessão</b> → inclui o beneficiário (nominal→usuário; grupo→grupo do usuário aninhado) via SCIM. Em <b>produção</b> o Motor já concedeu o grant do grupo — o app <b>só faz membership</b>; em <b>dev</b> (<code>PROVISION_GROUP_GRANT</code>) provisiona o <code>GRANT</code> best-effort via <code>tabela_aisn</code>. <b>Revogação</b> → remove o membro.</li>
         <li>Atualiza <code>acesso.cod_status_acesso</code> (EFETIVADO/REVOGADO/ERRO), <code>execucao_tecnica</code> e grava <code>evento_ciclo_vida</code>.</li>
       </ol>
       <div class="callout warn"><span class="ico">GROUPS_SCOPE</span><p class="ct"><code>db.get_groups_client()</code> decide o cliente SCIM: <b>account</b> (produção — grupos de conta, principais válidos no UC; exige <code>DATABRICKS_ACCOUNT_ID</code> e o <b>SP como gerente</b> desses grupos) ou <b>workspace</b> (dev sem conta — a associação é real e verificável, mas o GRANT do grupo <b>não propaga</b> no UC, limitação D-009; o SP precisa poder gerenciar grupos do workspace).</p></div>
@@ -358,13 +360,13 @@ td code, th code{font-family:var(--mono)}
         <thead><tr><th>Serviço</th><th>Responsabilidade</th><th>Grava em</th></tr></thead>
         <tbody>
           <tr><td><code>catalog_service</code></td><td>vitrine de ativos + detalhe + escopo</td><td>— (só lê)</td></tr>
-          <tr><td><code>request_service</code></td><td>criar/listar/cancelar solicitação, regras, hierarquia/grupos</td><td><code>gestao_acesso</code></td></tr>
-          <tr><td><code>approval_service</code></td><td>filas + decisões (gestor/owner)</td><td><code>gestao_acesso</code></td></tr>
-          <tr><td><code>access_service</code></td><td>acessos, revogação, <b>worker de efetivação</b></td><td><code>gestao_acesso</code></td></tr>
-          <tr><td><code>membership_executor</code></td><td><b>concessão = associação ao grupo</b> (SCIM) + provisiona GRANT</td><td>SCIM + UC</td></tr>
-          <tr><td><code>grant_executor</code></td><td>monta/executa GRANT/REVOKE do grupo nos objetos</td><td>UC</td></tr>
-          <tr><td><code>ativo_scope</code></td><td>resolução polimórfica ativo → objetos UC + JOIN de detalhes</td><td>—</td></tr>
-          <tr><td><code>audit_service</code></td><td>trilha de eventos + resumo por domínio</td><td><code>gestao_acesso</code> (eventos)</td></tr>
+          <tr><td><code>request_service</code></td><td>criar/listar/cancelar solicitação, regras, hierarquia/grupos</td><td><code>marketplace_app</code></td></tr>
+          <tr><td><code>approval_service</code></td><td>filas + decisões (gestor/owner)</td><td><code>marketplace_app</code></td></tr>
+          <tr><td><code>access_service</code></td><td>acessos, revogação, <b>worker de efetivação</b></td><td><code>marketplace_app</code></td></tr>
+          <tr><td><code>membership_executor</code></td><td><b>concessão = associação ao grupo</b> (SCIM); provisiona GRANT só em dev</td><td>SCIM (+ UC em dev)</td></tr>
+          <tr><td><code>grant_executor</code></td><td>monta/executa GRANT/REVOKE do grupo nos objetos (dev/provisionamento)</td><td>UC</td></tr>
+          <tr><td><code>ativo_scope</code></td><td>resolução polimórfica ativo → objetos UC (via <code>tabela_aisn</code>) + JOIN de detalhes</td><td>—</td></tr>
+          <tr><td><code>audit_service</code></td><td>trilha de eventos + resumo por domínio</td><td><code>marketplace_app</code> (eventos)</td></tr>
         </tbody>
       </table></div>
       <p class="endnote">Marketplace de Dados · Sicoob — documentação técnica (rotas &amp; dados). Documento interno. Fonte: docs/ARQUITETURA-APP.md.</p>

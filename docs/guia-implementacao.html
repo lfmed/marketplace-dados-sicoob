@@ -257,9 +257,9 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
       <div class="section-head">
         <span class="section-num" style="font-size:1rem">◇</span>
         <div><h2>Arquitetura em produção</h2>
-        <p class="sub">Três planos: a governança (origem, no cliente), o estado (Lakebase) e a efetivação (Unity Catalog).</p></div>
+        <p class="sub">3 schemas (catálogo <code>plataforma</code>): governanca + gestao_acesso (mirrors do Motor) e marketplace_app (workflow do app).</p></div>
       </div>
-      <p class="narrow">O app <strong>não é a fonte da verdade</strong> da governança — ele a <strong>consome</strong>. Os metadados (domínios, subdomínios, iniciativas, camadas, owners, hierarquia e os <strong>ativos</strong>) são mantidos pelo <strong>Motor de Governança</strong> do cliente em tabelas Delta e replicados para o Lakebase por <em>synced tables</em>. O catálogo gira em torno do <strong>ativo</strong> — a unidade liberável em qualquer nível (domínio, subdomínio, iniciativa/schema ou tabela). O app lê essa governança, registra o ciclo de vida no schema <code>gestao_acesso</code> e, na efetivação, <strong>inclui o beneficiário no grupo do ativo</strong> (que detém o <code>GRANT</code> real no Unity Catalog) — agindo como um <strong>Service Principal</strong>.</p>
+      <p class="narrow">O app <strong>não é a fonte da verdade</strong> — ele <strong>consome</strong> o que os Motores do cliente mantêm em Delta (catálogo <code>plataforma</code>): <code>governanca</code> (taxonomia + <code>tabela_aisn</code>) e <code>gestao_acesso</code> (referência de acesso: <strong>ativos</strong>, grupos, owners, hierarquia). Esses dois são replicados para o Lakebase por <em>synced tables</em> (somente leitura). O catálogo gira em torno do <strong>ativo</strong> (em <code>gestao_acesso</code>) — a unidade liberável em qualquer nível. O app grava só o seu <strong>workflow</strong> no schema <code>marketplace_app</code> e, na efetivação, <strong>inclui o beneficiário no grupo do ativo</strong> — que já detém o <code>GRANT</code> no Unity Catalog (concedido pelo Motor) — agindo como um <strong>Service Principal</strong>. Catálogo e schemas são <strong>parametrizáveis</strong> (env).</p>
       <div class="arch">
         <svg viewBox="0 0 1000 470" role="img" aria-label="Diagrama: fluxo de dados do Marketplace em produção — Motor de Governança para Lakebase, App e Unity Catalog">
           <defs>
@@ -274,21 +274,21 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
           <line class="dg-line" x1="588" y1="94" x2="588" y2="168" marker-end="url(#ah)"/>
           <text class="dg-lbl" x="612" y="136">SSO</text>
 
-          <!-- A · Motor de Governança -->
-          <text class="dg-eyebrow" x="12" y="160">ORIGEM · CLIENTE</text>
+          <!-- A · Motores do cliente -->
+          <text class="dg-eyebrow" x="12" y="160">ORIGEM · CLIENTE (plataforma)</text>
           <rect class="dg-box src" x="12" y="170" width="176" height="120" rx="12"/>
-          <text class="dg-title" x="26" y="200">Motor de Governança</text>
-          <text class="dg-sub" x="26" y="223">Delta no Unity Catalog</text>
-          <text class="dg-sub" x="26" y="242">iniciativas · camadas</text>
-          <text class="dg-sub" x="26" y="261">owners · hierarquia</text>
+          <text class="dg-title" x="26" y="200">Motores (Delta)</text>
+          <text class="dg-sub" x="26" y="223">governanca: taxonomia</text>
+          <text class="dg-sub" x="26" y="242">+ tabela_aisn</text>
+          <text class="dg-sub" x="26" y="261">gestao_acesso: ativos/grupos</text>
 
           <!-- B · Lakebase -->
-          <text class="dg-eyebrow" x="256" y="160">ESTADO · LAKEBASE</text>
+          <text class="dg-eyebrow" x="256" y="160">LAKEBASE · 3 SCHEMAS</text>
           <rect class="dg-box" x="256" y="170" width="176" height="120" rx="12"/>
-          <text class="dg-title" x="270" y="200">Lakebase · Postgres</text>
-          <text class="dg-sub" x="270" y="223">governanca (espelho)</text>
-          <text class="dg-sub" x="270" y="242">gestao_acesso (app)</text>
-          <text class="dg-sub" x="270" y="261">autoscaling · PG 17</text>
+          <text class="dg-title" x="270" y="199">Lakebase · Postgres</text>
+          <text class="dg-sub" x="270" y="221">governanca (mirror)</text>
+          <text class="dg-sub" x="270" y="239">gestao_acesso (mirror)</text>
+          <text class="dg-sub" x="270" y="257">marketplace_app (workflow)</text>
 
           <!-- C · App (hero) -->
           <text class="dg-eyebrow" x="500" y="160">APLICAÇÃO</text>
@@ -324,11 +324,11 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
         </svg>
       </div>
       <ol class="legend">
-        <li><b>Motor de Governança</b> mantém os metadados (domínios, subdomínios, iniciativas, camadas, owners, hierarquia) e os <b>ativos</b> em tabelas Delta no Unity Catalog — fonte da verdade, fora do app.</li>
-        <li><b>Synced tables</b> replicam essas tabelas Delta para o schema <code>governanca</code> no Lakebase (espelho de leitura, atualizado continuamente).</li>
-        <li>O <b>usuário entra via SSO</b>, navega o catálogo de <b>ativos</b> e pede acesso a um ativo; o app lê a governança do Lakebase e registra cada solicitação, autorização e aprovação no schema transacional <code>gestao_acesso</code>.</li>
-        <li>Na aprovação final do owner do ativo, o <b>worker de efetivação</b> <b>inclui o beneficiário no grupo do ativo</b> (via SCIM) — o grupo é quem detém o <code>GRANT</code> no Unity Catalog, concedido por nível do ativo (schema/tabela). Revogar = remover a associação. O app age como o <b>Service Principal</b>.</li>
-        <li>O <b>beneficiário</b> (usuário nominal ou o grupo exploratório do usuário) passa a ter acesso por ser <b>membro do grupo do ativo</b>, de forma auditável (RF-081..088).</li>
+        <li>Os <b>Motores</b> (Governança + Acesso) do cliente mantêm, em Delta no catálogo <code>plataforma</code>: <code>governanca</code> (taxonomia + <code>tabela_aisn</code>, único com o alvo UC) e <code>gestao_acesso</code> (referência de acesso: <b>ativos</b> com o grupo embutido, grupos, owners, hierarquia).</li>
+        <li><b>Synced tables</b> replicam esses dois schemas Delta para o Lakebase (<code>governanca</code> + <code>gestao_acesso</code>, mirrors de leitura). O app grava só o seu workflow no schema <code>marketplace_app</code>.</li>
+        <li>O <b>usuário entra via SSO</b>, navega o catálogo de <b>ativos</b> e pede acesso; o app registra cada solicitação/autorização/aprovação em <code>marketplace_app</code>.</li>
+        <li>Na aprovação final do owner do ativo, o <b>worker</b> <b>inclui o beneficiário no grupo do ativo</b> (via SCIM). O grupo (de conta) já detém o <code>GRANT</code> no Unity Catalog, concedido pelo <b>Motor</b> — o app <b>só faz a associação</b>. Revogar = remover o membro. O app age como o <b>Service Principal</b>.</li>
+        <li>O <b>beneficiário</b> (usuário nominal ou um grupo do qual é membro) passa a ter acesso por ser <b>membro do grupo do ativo</b>, de forma auditável (RF-081..088).</li>
       </ol>
     </section>
 
@@ -337,30 +337,28 @@ td .why{color:var(--muted);font-size:.9rem;display:block;margin-top:2px}
       <div class="section-head">
         <span class="section-num">0</span>
         <div><h2>O que o cliente provisiona</h2>
-        <p class="sub">Recursos que precisam existir na workspace antes de publicar.</p></div>
+        <p class="sub">Boa parte já existe: governança, ativos e grupos vêm do Motor. O app consome.</p></div>
       </div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>#</th><th>Recurso</th><th>Para quê</th><th>Responsável</th></tr></thead>
+          <thead><tr><th>#</th><th>Recurso</th><th>Para quê</th><th>Estado</th></tr></thead>
           <tbody>
-            <tr><td class="num-c">1</td><td><span class="what">Workspace Databricks + Unity Catalog</span><span class="why">Base de tudo; UC habilitado no metastore.</span></td><td>Fundação para catálogo e grants.</td><td><span class="who cli">Cliente</span></td></tr>
-            <tr><td class="num-c">2</td><td><span class="what">SQL Warehouse serverless</span><span class="why">Ativo e acessível pelo SP do app.</span></td><td>Executa o DDL e os <code>GRANT</code>/<code>REVOKE</code> reais.</td><td><span class="who cli">Cliente</span></td></tr>
-            <tr><td class="num-c">3</td><td><span class="what">Projeto Lakebase</span><span class="why">Autoscaling, Postgres 17.</span></td><td>Banco do app: ciclo de vida do acesso + espelho da governança.</td><td><span class="who cli">Cliente</span> <span class="who fe">FE</span></td></tr>
-            <tr><td class="num-c">4</td><td><span class="what">Catálogo UC + schemas reais</span><span class="why">Os dados (schemas/tabelas) já existem.</span></td><td>São os <strong>alvos</strong> do grant do grupo do ativo (<code>SELECT</code>/<code>MODIFY</code>, por nível).</td><td><span class="who cli">Cliente</span></td></tr>
-            <tr><td class="num-c">5</td><td><span class="what">Service Principal do app</span><span class="why">Identidade sob a qual o app roda.</span></td><td><code>MANAGE</code> no catálogo/schemas, <code>CAN_USE</code> no warehouse, role no Lakebase e <strong>gerente dos grupos de conta</strong> (para associar membros).</td><td><span class="who cli">Cliente concede</span></td></tr>
-            <tr><td class="num-c">6</td><td><span class="what">Base de governança + ativos (Motor)</span><span class="why">Domínios, subdomínios, iniciativas, camadas, owners, hierarquia, grupos e <strong>ativos</strong> — em Delta.</span></td><td>É o que o app cataloga (o <strong>ativo</strong> é o driver) e usa para validar e rotear aprovações.</td><td><span class="who cli">Cliente · Motor</span></td></tr>
-            <tr><td class="num-c">7</td><td><span class="what">Account groups no UC</span><span class="why">São o <strong>grupo do ativo</strong> — o mecanismo da concessão.</span></td><td>O beneficiário é incluído no grupo do ativo; o grupo (de conta) é principal válido do UC e detém o grant.</td><td><span class="who cli">Cliente</span></td></tr>
-            <tr><td class="num-c">8</td><td><span class="what">SSO na workspace</span><span class="why">Identidade propagada ao app.</span></td><td>Usuário logado é identificado pelo e-mail (<code>X-Forwarded-Email</code>).</td><td><span class="who cli">Cliente</span></td></tr>
+            <tr><td class="num-c">1</td><td><span class="what">plataforma.governanca + plataforma.gestao_acesso</span><span class="why">Taxonomia, <code>tabela_aisn</code>, <b>ativos</b> (com <code>nome_grupo_ativo</code>), grupos, owners, hierarquia — em Delta.</span></td><td>É o que o app cataloga e usa para validar/rotear. O <b>ativo</b> é o driver.</td><td><span class="who auto">JÁ EXISTE · Motor</span></td></tr>
+            <tr><td class="num-c">2</td><td><span class="what">Account groups dos ativos</span><span class="why">Os <code>nome_grupo_ativo</code>, já com o <code>GRANT</code> concedido nos objetos.</span></td><td>São o <b>grupo do ativo</b> — o mecanismo da concessão (o app inclui membros).</td><td><span class="who auto">JÁ EXISTE · Motor</span></td></tr>
+            <tr><td class="num-c">3</td><td><span class="what">Schemas/tabelas reais dos dados</span><span class="why">Referenciados por <code>tabela_aisn</code>.</span></td><td>Alvos do grant do grupo do ativo (já concedido pelo Motor).</td><td><span class="who auto">JÁ EXISTE</span></td></tr>
+            <tr><td class="num-c">4</td><td><span class="what">Projeto Lakebase</span><span class="why">Autoscaling, Postgres 17.</span></td><td>Base do app: mirrors (synced) + schema <code>marketplace_app</code> (workflow).</td><td><span class="who cli">Cliente provisiona</span></td></tr>
+            <tr><td class="num-c">5</td><td><span class="what">SQL Warehouse serverless</span><span class="why">Acessível pelo SP.</span></td><td>Registrar synced tables; DDL do <code>marketplace_app</code>.</td><td><span class="who cli">Cliente provisiona</span></td></tr>
+            <tr><td class="num-c">6</td><td><span class="what">Service Principal do app + SSO</span><span class="why">Identidade do app; login dos usuários.</span></td><td><b>Gerente dos account groups</b> (associar membros), role no Lakebase, <code>CAN_USE</code> no warehouse, <code>SELECT</code> nas tabelas Delta. <b>Não</b> precisa <code>MANAGE</code> nos dados.</td><td><span class="who cli">Cliente concede</span></td></tr>
           </tbody>
         </table>
       </div>
       <div class="callout">
-        <span class="ico">dev → prod</span>
-        <p class="ct"><b>A diferença central.</b> Em <b>dev</b> nós geramos dados <b>sintéticos</b> (governança fake + schemas UC <code>mkt_*</code> de teste) só para validar o grant real ponta a ponta. Em <b>produção não se semeia nada</b>: a governança vem do <b>Motor de Governança</b> do cliente (item 6) e os alvos de grant são os <b>schemas reais</b> (item 4). O app é o mesmo — muda só a origem dos dados (parametrizada) e o modo de sync.</p>
+        <span class="ico">chave</span>
+        <p class="ct"><b>O cliente não cria nem semeia a governança.</b> <code>governanca</code> e <code>gestao_acesso</code> (com ativos, grupos e proprietários) já são mantidos pelo <b>Motor</b> em Delta. O app só cria o próprio schema de <b>workflow</b> (<code>marketplace_app</code>) e registra as <b>synced tables</b> dos dois mirrors — via <code>python -m db.setup --mode native --no-seed</code>. E como os account groups já têm o grant (Motor), o app <b>só gerencia associação de membros</b> (<code>PROVISION_GROUP_GRANT=false</code>).</p>
       </div>
       <div class="refs">
         <span class="ref doc-int">docs/DEPLOY.md · §0</span>
-        <span class="ref doc-int">docs/DECISIONS.md · D-007..D-009 / D-013 / D-014</span>
+        <span class="ref doc-int">docs/DECISIONS.md · D-013 / D-014 / D-015</span>
         <span class="ref doc-int">docs/ARQUITETURA-APP.md</span>
       </div>
     </section>
@@ -433,7 +431,7 @@ databricks postgres create-project marketplace-dados \
       <p class="narrow">A criação do projeto é uma operação de longa duração: o comando retorna quando o projeto, a branch <code>production</code> e o endpoint <code>primary</code> estão prontos. Confirme com <code>databricks postgres list-projects</code>. O <strong>SQL Warehouse serverless</strong> (item 2 do checklist) também precisa estar ativo — é ele que executa o DDL do banco e os comandos <code>GRANT</code>/<code>REVOKE</code>.</p>
       <div class="callout warn">
         <span class="ico">requer</span>
-        <p class="ct"><b>Dois privilégios são pré-condição.</b> Para as <b>synced tables nativas</b> (modo <code>native</code>, passo 3), quem roda o setup precisa de <b><code>CREATE CATALOG</code> no metastore</b> — é o que permite ao Lakebase materializar o espelho da governança. E para conceder/revogar acessos, o <b>Service Principal do app</b> precisa de <code>USE CATALOG</code> + <code>MANAGE</code> nos schemas alvo (configurado no passo 4). Sem eles, o setup e a efetivação falham com erro de permissão.</p>
+        <p class="ct"><b>Pré-condições.</b> Para registrar as <b>synced tables nativas</b> dos mirrors (<code>plataforma.governanca</code> + <code>plataforma.gestao_acesso</code>), quem roda o setup precisa de <b><code>CREATE CATALOG</code> no metastore</b>. E para <b>efetivar</b>, o <b>Service Principal do app</b> precisa ser <b>gerente dos account groups dos ativos</b> (para incluir/remover membros) — <b>não</b> precisa de <code>MANAGE</code> nos schemas de dados, pois o grant do grupo já é concedido pelo Motor (<code>PROVISION_GROUP_GRANT=false</code>).</p>
       </div>
       <div class="refs">
         <a class="ref ext" href="https://docs.databricks.com/aws/en/compute/sql-warehouse/" target="_blank" rel="noopener">SQL Warehouses <span class="ar">↗</span></a>
@@ -451,34 +449,42 @@ databricks postgres create-project marketplace-dados \
       </div>
       <p class="narrow">Todo o comportamento específico da workspace é controlado por variáveis de ambiente, lidas de forma central em <code>app/config.py</code> — nenhum ID de recurso fica embutido no código. Isso é o que torna a mesma base portável de dev para o cliente: só mudam os valores abaixo. Em produção, prefira <code>valueFrom</code> no <code>app.yaml</code> (que resolve o ID a partir de um recurso vinculado à app) em vez de <code>value</code> com o ID escrito à mão, e configure a chave de sessão como um <em>secret</em>, nunca em texto puro.</p>
       <div class="kv">
-        <div class="row"><div class="key">UC_CATALOG</div><div class="val">Catálogo UC onde estão os schemas dos dados. Ex.: <code>catalogo_producao</code></div></div>
-        <div class="row"><div class="key">DATABRICKS_WAREHOUSE_ID</div><div class="val">Warehouse para DDL/GRANT/REVOKE.</div></div>
+        <div class="row"><div class="key">GOV_CATALOG</div><div class="val">Catálogo Delta do Motor (governanca + gestao_acesso). Produção: <code>plataforma</code></div></div>
+        <div class="row"><div class="key">SCHEMA_GOVERNANCA / SCHEMA_GESTAO / SCHEMA_APP</div><div class="val">Nomes de schema — <code>governanca</code> / <code>gestao_acesso</code> / <code>marketplace_app</code></div></div>
         <div class="row"><div class="key">LAKEBASE_ENDPOINT</div><div class="val"><code>projects/marketplace-dados/branches/production/endpoints/primary</code></div></div>
-        <div class="row"><div class="key">GRANT_EXECUTE_REAL</div><div class="val">Executa GRANT/REVOKE reais no UC. <code>true</code></div></div>
-        <div class="row"><div class="key">APP_ENABLE_PROXY</div><div class="val">Seletor "atuar como" (demo). Produção: <code>false</code></div></div>
-        <div class="row"><div class="key">GROUPS_SCOPE</div><div class="val">Escopo dos grupos da concessão. Produção: <code>account</code> (grupos de conta). Dev sem conta: <code>workspace</code></div></div>
-        <div class="row"><div class="key">DATABRICKS_ACCOUNT_ID</div><div class="val">Id da conta — exigido quando <code>GROUPS_SCOPE=account</code></div></div>
+        <div class="row"><div class="key">DATABRICKS_WAREHOUSE_ID</div><div class="val">Warehouse p/ registrar synced tables e DDL do <code>marketplace_app</code>.</div></div>
+        <div class="row"><div class="key">GROUPS_SCOPE + DATABRICKS_ACCOUNT_ID</div><div class="val">Produção: <code>account</code> (grupos de conta) + id da conta. Dev sem conta: <code>workspace</code></div></div>
+        <div class="row"><div class="key">PROVISION_GROUP_GRANT</div><div class="val">Produção: <code>false</code> (o Motor já concede o grant do grupo; app só faz membership). Dev: <code>true</code></div></div>
+        <div class="row"><div class="key">GRANT_EXECUTE_REAL / APP_ENABLE_PROXY</div><div class="val"><code>true</code> / <code>false</code> (identidade só por SSO em produção)</div></div>
       </div>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">yaml · app.yaml</span></div>
 <pre><code>command: ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
 env:
-  - name: UC_CATALOG
-    value: "&lt;catalogo_uc_do_cliente&gt;"
-  - name: DATABRICKS_WAREHOUSE_ID
-    value: "&lt;warehouse_id&gt;"
+  - name: GOV_CATALOG
+    value: "plataforma"
+  - name: SCHEMA_GOVERNANCA
+    value: "governanca"
+  - name: SCHEMA_GESTAO
+    value: "gestao_acesso"
+  - name: SCHEMA_APP
+    value: "marketplace_app"    <span class="c"># workflow do app (criado pelo app)</span>
   - name: LAKEBASE_ENDPOINT
     value: "projects/marketplace-dados/branches/production/endpoints/primary"
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "&lt;warehouse_id&gt;"
+  - name: GROUPS_SCOPE
+    value: "account"
+  - name: DATABRICKS_ACCOUNT_ID
+    value: "&lt;account_id&gt;"
+  - name: PROVISION_GROUP_GRANT
+    value: "false"              <span class="c"># o Motor concede o grant; app só faz membership</span>
   - name: GRANT_EXECUTE_REAL
     value: "true"
   - name: APP_ENABLE_PROXY
-    value: "false"        <span class="c"># produção: sem "atuar como"</span>
-  - name: GROUPS_SCOPE
-    value: "account"      <span class="c"># grupos de conta (dev sem conta: workspace)</span>
-  - name: DATABRICKS_ACCOUNT_ID
-    value: "&lt;account_id&gt;"</code></pre>
+    value: "false"</code></pre>
       </div>
-      <p class="narrow">Três variáveis merecem atenção em produção. <code>GRANT_EXECUTE_REAL=true</code> liga a efetivação real — com <code>false</code>, o app registra o fluxo mas não altera nada (ensaios). <code>APP_ENABLE_PROXY=false</code> desativa o seletor "atuar como"; em produção a identidade vem só do SSO (<code>X-Forwarded-Email</code>). E <code>GROUPS_SCOPE=account</code> diz que a concessão usa <strong>grupos de conta</strong> (o beneficiário é incluído no grupo do ativo, que é principal válido no UC) — nesse modo defina também <code>DATABRICKS_ACCOUNT_ID</code> e garanta que o <strong>Service Principal do app seja gerente desses grupos de conta</strong> (ou admin de conta). Em dev sem acesso à conta, use <code>workspace</code>: a associação funciona, mas o grant do grupo não propaga no UC (grupo workspace-local não é principal do UC).</p>
+      <p class="narrow">Catálogo e schemas são <strong>parametrizáveis</strong> (<code>GOV_CATALOG</code>, <code>SCHEMA_*</code>) — lidos em <code>app/config.py</code>/<code>app/schemas.py</code> e injetados em todas as queries, então a mesma base roda no dev (catálogo fixo) e no cliente (<code>plataforma</code>) só mudando env. Em produção, <code>GROUPS_SCOPE=account</code> (a concessão usa <strong>grupos de conta</strong> — principais válidos no UC) exige <code>DATABRICKS_ACCOUNT_ID</code> e o <strong>SP do app como gerente desses grupos</strong>; e <code>PROVISION_GROUP_GRANT=false</code> mantém o app <strong>só na associação</strong> (o Motor já concedeu o grant do grupo).</p>
       <div class="refs">
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/app-runtime" target="_blank" rel="noopener">Referência do app.yaml <span class="ar">↗</span></a>
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources" target="_blank" rel="noopener">Recursos da App <span class="ar">↗</span></a>
@@ -494,31 +500,31 @@ env:
         <div><h2>Banco de dados</h2>
         <p class="sub">Um único entrypoint idempotente provisiona tudo.</p></div>
       </div>
-      <p class="narrow">O banco do app tem dois schemas no Lakebase, com papéis distintos. <code>governanca</code> é um <strong>espelho de leitura</strong> — populado a partir das tabelas Delta do Motor de Governança via synced tables; o app nunca escreve nele. <code>gestao_acesso</code> é o schema <strong>transacional do app</strong> — é onde ficam solicitações, autorizações, aprovações, acessos, execuções técnicas e a trilha de auditoria. O comando abaixo cria e popula os dois de forma idempotente (pode rodar de novo com segurança).</p>
+      <p class="narrow">O banco do app tem <strong>3 schemas</strong> no Lakebase. <code>governanca</code> e <code>gestao_acesso</code> são <strong>mirrors de leitura</strong> — populados por synced tables a partir do Delta do Motor (<code>plataforma.*</code>); o app nunca escreve neles. <code>marketplace_app</code> é o schema <strong>transacional do app</strong> — solicitações, autorizações, aprovações, acessos, execuções técnicas e trilha de auditoria. Como a governança já existe, em produção o comando <b>não semeia nada</b>: só cria o <code>marketplace_app</code> e registra as synced tables.</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
-<pre><code><span class="c"># PRODUÇÃO — synced tables nativas, SEM seed sintético</span>
+<pre><code><span class="c"># PRODUÇÃO — cria marketplace_app + registra synced tables dos mirrors, SEM seed</span>
 python -m db.setup --mode native --no-seed
 
-<span class="c"># DEV / demo — sync controlado Delta→Lakebase + seed sintético</span>
+<span class="c"># DEV / demo — sync controlado + seed sintético (catálogo fixo do dev)</span>
 python -m db.setup --mode dev</code></pre>
       </div>
-      <p class="narrow">A diferença entre os modos é <em>como</em> a governança chega ao Lakebase. Em <code>--mode native</code> (produção), o Lakebase mantém <strong>synced tables nativas</strong> que replicam continuamente o Delta real do Motor — por isso exige <code>CREATE CATALOG</code> no metastore. Em <code>--mode dev</code>, um sync controlado copia um schema Delta sintético, sem exigir esse privilégio. Já o <code>--seed</code> controla se dados <em>sintéticos</em> são criados: ele liga por padrão em dev e desliga em native, e você pode forçar qualquer combinação (<code>--seed</code> / <code>--no-seed</code>).</p>
-      <h3>O que cada passo faz</h3>
+      <p class="narrow">Em <code>--mode native</code> (produção), o Lakebase mantém <strong>synced tables nativas</strong> que replicam <code>plataforma.governanca</code> e <code>plataforma.gestao_acesso</code> — por isso exige <code>CREATE CATALOG</code> no metastore. O schema <code>marketplace_app</code> (workflow) é criado nativo e é o único gravável. Em <code>--mode dev</code>, um sync controlado copia um schema Delta sintético (catálogo do dev). O <code>--seed</code> liga por padrão em dev e desliga em native.</p>
+      <h3>O que cada passo faz (produção, <code>--no-seed</code>)</h3>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Passo</th><th>Ação</th><th>Produção (<code>--no-seed</code>)</th></tr></thead>
+          <thead><tr><th>Passo</th><th>Ação</th><th>Produção</th></tr></thead>
           <tbody>
-            <tr><td class="num-c">1</td><td>Cria schemas Lakebase (<code>gestao_acesso</code>; <code>governanca</code> só em dev).</td><td>Sempre</td></tr>
-            <tr><td class="num-c">2</td><td>Cria governança sintética em Delta + seed.</td><td><span class="who auto">Pulado</span></td></tr>
-            <tr><td class="num-c">3</td><td>Cria alvos de GRANT sintéticos (grupos + schemas <code>mkt_*</code>).</td><td><span class="who auto">Pulado</span></td></tr>
-            <tr><td class="num-c">4</td><td>Popula <code>governanca</code> no Lakebase (synced tables nativas a partir do Delta do Motor).</td><td>Sempre</td></tr>
+            <tr><td class="num-c">1</td><td>Cria o schema <code>marketplace_app</code> no Lakebase (workflow do app).</td><td>Sempre</td></tr>
+            <tr><td class="num-c">2</td><td>Cria governança sintética em Delta + seed.</td><td><span class="who auto">Pulado — já existe</span></td></tr>
+            <tr><td class="num-c">3</td><td>Cria alvos de GRANT sintéticos (grupos + schemas <code>mkt_*</code>).</td><td><span class="who auto">Pulado — já existe</span></td></tr>
+            <tr><td class="num-c">4</td><td>Registra as <b>synced tables nativas</b> de <code>plataforma.governanca</code> + <code>plataforma.gestao_acesso</code> (mirrors só leitura).</td><td>Sempre</td></tr>
           </tbody>
         </table>
       </div>
       <div class="callout">
-        <span class="ico">--seed / --no-seed</span>
-        <p class="ct"><b>O seed é opcional.</b> Liga por padrão em <code>--mode dev</code> e desliga em <code>--mode native</code>. Aponte as synced tables (<code>db/native_sync_setup.py</code>) para as tabelas Delta reais mantidas pelo Motor de Governança, no lugar do schema sintético <code>marketplace_governanca</code>.</p>
+        <span class="ico">governança já existe</span>
+        <p class="ct"><b>Em produção o app não cria nem semeia a governança.</b> Ela (com ativos, grupos e proprietários) já é mantida pelo Motor em <code>plataforma.governanca</code> e <code>plataforma.gestao_acesso</code>. O setup só cria o <code>marketplace_app</code> e aponta as synced tables (<code>db/native_sync_setup.py</code>) para os schemas Delta reais.</p>
       </div>
       <div class="refs">
         <span class="ref doc-int">db/setup.py</span>
@@ -535,28 +541,26 @@ python -m db.setup --mode dev</code></pre>
         <div><h2>Catálogos &amp; schemas — quem cria o quê</h2>
         <p class="sub">O que nasce no Lakehouse (Unity Catalog) e o que nasce no Lakebase (Postgres).</p></div>
       </div>
-      <p class="narrow"><b>Sim — o cliente pode criar os catálogos.</b> O catálogo de destino é sempre um <em>parâmetro</em> (<code>UC_CATALOG</code>): o app <b>nunca cria o catálogo padrão</b>, ele o assume já existente e cria apenas <em>schemas</em> dentro dele (decisão D-007). E há total flexibilidade no <em>como</em>: cada objeto pode ser criado pelo setup idempotente <b>ou manualmente</b> pelo cliente — inclusive a criação das tabelas e o seed são escolhas independentes.</p>
+      <p class="narrow">Catálogo e schemas são <em>parâmetros</em> (<code>GOV_CATALOG</code>, <code>SCHEMA_*</code>): o app assume <code>plataforma.governanca</code> e <code>plataforma.gestao_acesso</code> <b>já existentes</b> (Motor) e cria apenas o seu schema de <b>workflow</b> (<code>marketplace_app</code>) no Lakebase. Nada de governança é criado/semeado em produção.</p>
 
-      <h3>No Lakehouse (Unity Catalog)</h3>
+      <h3>No Lakehouse (Unity Catalog) — vem do Motor, o app só lê</h3>
       <div class="tablewrap"><table>
-        <thead><tr><th>Objeto</th><th>Arquivo</th><th>Dev</th><th>Produção</th></tr></thead>
+        <thead><tr><th>Objeto</th><th>Onde</th><th>Estado</th></tr></thead>
         <tbody>
-          <tr><td><span class="what">Catálogo padrão</span><span class="why"><code>UC_CATALOG</code> — onde ficam os schemas de dados</span></td><td><code>app/config.py</code></td><td>já existe</td><td><span class="who cli">Cliente cria/possui</span></td></tr>
-          <tr><td><span class="what">Governança em Delta</span><span class="why">16 tabelas: domínios, iniciativas, owners…</span></td><td><code>db/seed/delta_governanca.py</code></td><td>schema <code>marketplace_governanca</code> (sintético)</td><td><span class="who cli">Vem do Motor</span> (Delta real)</td></tr>
-          <tr><td><span class="what">Schemas-alvo de grant</span><span class="why">os dados por iniciativa + camada</span></td><td><code>db/seed/seed_uc_targets.py</code></td><td><code>mkt_*</code> (sintéticos)</td><td><span class="who cli">Schemas reais</span> do cliente</td></tr>
-          <tr><td><span class="what">Grupos de conta</span><span class="why">para grant por grupo (D-009)</span></td><td><code>db/seed/seed_uc_targets.py</code></td><td>criados no seed</td><td><span class="who cli">Account groups</span> do cliente</td></tr>
-          <tr><td><span class="what">Catálogo do Lakebase no UC</span><span class="why"><code>LAKEBASE_UC_CATALOG</code> — registra o Postgres no UC</span></td><td><code>db/native_sync_setup.py</code></td><td>n/a (dev usa sync controlado)</td><td><span class="who fe">Setup</span> ou <span class="who cli">cliente pré-cria</span></td></tr>
-          <tr><td><span class="what">Schema de checkpoints</span><span class="why">pipeline das synced tables</span></td><td><code>db/native_sync_setup.py</code></td><td>n/a</td><td><code>marketplace_sync_ckpt</code></td></tr>
+          <tr><td><span class="what"><code>plataforma.governanca</code></span><span class="why">taxonomia + combinações camada/ambiente + <code>tabela_aisn</code> + usuário + proprietários</span></td><td>Delta (Motor de Governança)</td><td><span class="who auto">JÁ EXISTE</span></td></tr>
+          <tr><td><span class="what"><code>plataforma.gestao_acesso</code></span><span class="why">hierarquia, grupos, <b>ativos</b> (com <code>nome_grupo_ativo</code>), proprietários</span></td><td>Delta (Motor de Acesso)</td><td><span class="who auto">JÁ EXISTE</span></td></tr>
+          <tr><td><span class="what">Schemas/tabelas reais dos dados</span><span class="why">referenciados por <code>tabela_aisn</code></span></td><td>catálogos do cliente</td><td><span class="who auto">JÁ EXISTE</span></td></tr>
+          <tr><td><span class="what">Account groups dos ativos</span><span class="why">os <code>nome_grupo_ativo</code>, já com o GRANT concedido</span></td><td>conta Databricks</td><td><span class="who auto">JÁ EXISTE · Motor</span></td></tr>
         </tbody>
       </table></div>
 
-      <h3>No Lakebase (Postgres)</h3>
+      <h3>No Lakebase (Postgres) — 3 schemas</h3>
       <div class="tablewrap"><table>
-        <thead><tr><th>Objeto</th><th>Arquivo</th><th>Papel</th></tr></thead>
+        <thead><tr><th>Schema</th><th>Como nasce</th><th>Papel</th></tr></thead>
         <tbody>
-          <tr><td><span class="what"><code>gestao_acesso</code> + tabelas</span><span class="why">solicitações, aprovações, acessos, execuções, auditoria</span></td><td><code>db/ddl/02_gestao_acesso.sql</code></td><td>Sempre · <b>gravável</b> (estado do app)</td></tr>
-          <tr><td><span class="what"><code>governanca</code> — dev</span><span class="why">espelho por sync controlado</span></td><td><code>db/ddl/01_governanca.sql</code> + <code>db/sync/sync_governanca.py</code></td><td>Leitura</td></tr>
-          <tr><td><span class="what"><code>governanca</code> — produção</span><span class="why">synced tables nativas do Delta</span></td><td><code>db/native_sync_setup.py</code></td><td>Somente leitura</td></tr>
+          <tr><td><span class="what"><code>marketplace_app</code></span><span class="why">solicitações, aprovações, acessos, execuções, auditoria</span></td><td><code>db/ddl/03_app.sql</code> (nativo)</td><td>Sempre · <b>gravável</b> (workflow do app)</td></tr>
+          <tr><td><span class="what"><code>governanca</code></span><span class="why">mirror da taxonomia + <code>tabela_aisn</code></span></td><td><code>db/native_sync_setup.py</code> (synced) · dev: sync controlado</td><td>Somente leitura</td></tr>
+          <tr><td><span class="what"><code>gestao_acesso</code></span><span class="why">mirror dos ativos, grupos, owners, hierarquia</span></td><td><code>db/native_sync_setup.py</code> (synced) · dev: sync controlado</td><td>Somente leitura</td></tr>
         </tbody>
       </table></div>
 
@@ -581,21 +585,21 @@ python -m db.setup --mode native --no-seed <span class="c"># sem seed — govern
       </div>
 
       <div class="callout">
-        <span class="ico">2 catálogos</span>
-        <p class="ct"><b>Posso criar os catálogos eu mesmo?</b> Sim. O <b>catálogo padrão</b> (<code>UC_CATALOG</code>) já é assumido como existente — você o cria e possui. O <b>catálogo do Lakebase no UC</b> (<code>LAKEBASE_UC_CATALOG</code>, ex.: <code>lakebase_marketplace</code>) é criado por <code>db/native_sync_setup.py</code> se o executor tiver <code>CREATE CATALOG</code>; se preferir, um admin do metastore o <b>pré-cria</b> e você só aponta <code>LAKEBASE_UC_CATALOG</code> — o setup detecta que já existe e pula a criação.</p>
+        <span class="ico">catálogos</span>
+        <p class="ct"><b>Quais catálogos?</b> <code>GOV_CATALOG</code> (ex.: <code>plataforma</code>) é o catálogo Delta do <b>Motor</b>, com os schemas <code>governanca</code> e <code>gestao_acesso</code> — o cliente o cria/possui (já existe). <code>LAKEBASE_UC_CATALOG</code> (ex.: <code>lakebase_marketplace</code>) registra o Postgres do Lakebase no UC e recebe as <b>synced tables</b> (mirror somente-leitura dos dois schemas); é criado por <code>db/native_sync_setup.py</code> se o executor tiver <code>CREATE CATALOG</code>, ou um admin do metastore o <b>pré-cria</b>. <code>UC_CATALOG</code> só importa no <b>dev</b> (dados sintéticos <code>mkt_*</code>); em produção os catálogos dos dados vêm de <code>tabela_aisn</code>.</p>
       </div>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">yaml · env dos catálogos</span></div>
-<pre><code>UC_CATALOG:          "&lt;catalogo_do_cliente&gt;"    <span class="c"># existente; só criamos schemas nele</span>
-UC_SCHEMA_PREFIX:    "mkt"                        <span class="c"># prefixo dos schemas de dados (dev)</span>
-LAKEBASE_UC_CATALOG: "lakebase_marketplace"       <span class="c"># catálogo que registra o Postgres no UC</span></code></pre>
+<pre><code>GOV_CATALOG:         "plataforma"                 <span class="c"># catálogo Delta do Motor (governanca + gestao_acesso)</span>
+LAKEBASE_UC_CATALOG: "lakebase_marketplace"       <span class="c"># registra o Postgres no UC (synced tables)</span>
+<span class="c"># UC_CATALOG só no dev (dados sintéticos mkt_*)</span></code></pre>
       </div>
       <div class="refs">
         <span class="ref doc-int">db/setup.py</span>
         <span class="ref doc-int">db/ddl/01_governanca.sql · 02_gestao_acesso.sql</span>
         <span class="ref doc-int">db/native_sync_setup.py</span>
         <a class="ref ext" href="https://docs.databricks.com/aws/en/data-governance/unity-catalog/" target="_blank" rel="noopener">Criar catálogos no UC <span class="ar">↗</span></a>
-        <span class="ref doc-int">docs/DECISIONS.md · D-007 / D-008 / D-010</span>
+        <span class="ref doc-int">docs/DECISIONS.md · D-010 / D-011 / D-015</span>
       </div>
     </section>
 
@@ -606,16 +610,15 @@ LAKEBASE_UC_CATALOG: "lakebase_marketplace"       <span class="c"># catálogo qu
         <div><h2>Permissões do app (service principal)</h2>
         <p class="sub">O app efetiva o acesso agindo como o SP — que precisa poder conceder.</p></div>
       </div>
-      <p class="narrow">Quando roda no Databricks Apps, o app tem a identidade de um <strong>service principal</strong> (SP). Na efetivação o SP faz duas coisas: <strong>provisiona o <code>GRANT</code> do grupo do ativo</strong> nos objetos UC (precisa de <code>MANAGE</code>) e <strong>associa o beneficiário ao grupo do ativo</strong> (precisa ser <strong>gerente desse grupo de conta</strong>). O script <code>scripts/grant_app_sp.py &lt;sp_client_id&gt;</code> aplica o lado Unity Catalog e o warehouse; o direito de gerente de grupo é concedido no console de conta (ou via API de conta). Abaixo, os comandos explícitos.</p>
-      <p class="narrow"><b>Por que <code>MANAGE</code> no catálogo?</b> Para conceder <code>USE CATALOG</code> a um beneficiário, o próprio SP precisa poder administrar esse privilégio no catálogo — daí <code>MANAGE ON CATALOG</code>. Nos schemas alvo, <code>MANAGE</code> permite ao SP conceder e revogar <code>SELECT</code>/<code>MODIFY</code> em nome dos owners.</p>
+      <p class="narrow">Quando roda no Databricks Apps, o app tem a identidade de um <strong>service principal</strong> (SP). Como a concessão é <strong>por associação a grupo</strong> e o Motor já concedeu o grant do grupo (<code>PROVISION_GROUP_GRANT=false</code>), em produção o SP faz <strong>uma coisa na efetivação</strong>: incluir/remover o beneficiário no <strong>grupo do ativo</strong> — por isso precisa ser <strong>gerente dos account groups</strong> (ou admin de conta). Não precisa de <code>MANAGE</code> nos schemas de dados. Além disso: <b>role no Lakebase</b> (OAuth), <b><code>CAN_USE</code></b> no warehouse e <b><code>SELECT</code></b> nas tabelas Delta de origem (para as synced tables).</p>
       <div class="code">
-        <div class="code-bar"><span class="dot"></span><span class="lang">sql · Unity Catalog</span></div>
-<pre><code><span class="c">-- MANAGE no catálogo é necessário para o SP conceder USE CATALOG aos beneficiários</span>
-GRANT USE CATALOG, MANAGE ON CATALOG &lt;UC_CATALOG&gt; TO `&lt;app-sp-client-id&gt;`;
-GRANT USE SCHEMA, MANAGE ON SCHEMA &lt;UC_CATALOG&gt;.&lt;schema_real&gt; TO `&lt;app-sp-client-id&gt;`;</code></pre>
+        <div class="code-bar"><span class="dot"></span><span class="lang">console de conta / SCIM</span></div>
+<pre><code><span class="c"># Torne o SP do app GERENTE de cada account group de ativo (nome_grupo_ativo).</span>
+<span class="c"># Via console: Conta ▸ Grupos ▸ &lt;grupo do ativo&gt; ▸ Permissões ▸ adicionar o SP como "Manager".</span>
+<span class="c"># (Ou via API de conta / rule sets — role: roles/group.manager.)</span></code></pre>
       </div>
       <div class="code">
-        <div class="code-bar"><span class="dot"></span><span class="lang">bash · warehouse + role Lakebase</span></div>
+        <div class="code-bar"><span class="dot"></span><span class="lang">bash · warehouse + role Lakebase + SELECT nos Delta</span></div>
 <pre><code><span class="c"># Warehouse: CAN_USE para o SP</span>
 databricks warehouses set-permissions &lt;wh&gt; --json '{"access_control_list":[
   {"service_principal_name":"&lt;sp-client-id&gt;","permission_level":"CAN_USE"}]}'
@@ -628,25 +631,29 @@ databricks postgres create-role projects/marketplace-dados/branches/production \
                    "postgres_role":"&lt;sp-client-id&gt;"}}'</code></pre>
       </div>
       <div class="code">
-        <div class="code-bar"><span class="dot"></span><span class="lang">sql · Postgres (como owner do projeto)</span></div>
-<pre><code>GRANT CONNECT ON DATABASE databricks_postgres TO "&lt;sp-client-id&gt;";
-GRANT USAGE ON SCHEMA governanca TO "&lt;sp-client-id&gt;";
-GRANT SELECT ON ALL TABLES IN SCHEMA governanca TO "&lt;sp-client-id&gt;";
-GRANT USAGE ON SCHEMA gestao_acesso TO "&lt;sp-client-id&gt;";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA gestao_acesso TO "&lt;sp-client-id&gt;";
-ALTER DEFAULT PRIVILEGES IN SCHEMA gestao_acesso
+        <div class="code-bar"><span class="dot"></span><span class="lang">sql · UC (SELECT nos Delta de origem) + Postgres (marketplace_app)</span></div>
+<pre><code><span class="c">-- UC: o SP lê os Delta que alimentam as synced tables</span>
+GRANT USE CATALOG ON CATALOG plataforma TO `&lt;app-sp-client-id&gt;`;
+GRANT USE SCHEMA, SELECT ON SCHEMA plataforma.governanca TO `&lt;app-sp-client-id&gt;`;
+GRANT USE SCHEMA, SELECT ON SCHEMA plataforma.gestao_acesso TO `&lt;app-sp-client-id&gt;`;
+
+<span class="c">-- Postgres: só o workflow (marketplace_app) é gravável; os mirrors são leitura</span>
+GRANT CONNECT ON DATABASE databricks_postgres TO "&lt;sp-client-id&gt;";
+GRANT USAGE ON SCHEMA marketplace_app TO "&lt;sp-client-id&gt;";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA marketplace_app TO "&lt;sp-client-id&gt;";
+ALTER DEFAULT PRIVILEGES IN SCHEMA marketplace_app
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "&lt;sp-client-id&gt;";</code></pre>
       </div>
-      <p class="narrow">Cada frente cobre um trecho do fluxo: o <b>warehouse</b> (<code>CAN_USE</code>) é onde o SP executa o SQL de grant; o <b>role no Lakebase</b> dá ao SP um token OAuth para conectar no Postgres; e os grants no Postgres deixam o SP <em>ler</em> a governança (só <code>SELECT</code>) e <em>ler e escrever</em> o ciclo de vida em <code>gestao_acesso</code>. O <code>ALTER DEFAULT PRIVILEGES</code> garante que tabelas criadas no futuro já nasçam acessíveis ao SP.</p>
+      <p class="narrow">Cada frente cobre um trecho: ser <b>gerente dos account groups</b> é o que permite a <b>associação</b> (a concessão); o <b>role no Lakebase</b> dá o token OAuth para o Postgres; o <b><code>SELECT</code> nos Delta</b> alimenta as synced tables; e no Postgres o SP <em>lê</em> os mirrors e <em>lê/grava</em> o workflow em <code>marketplace_app</code>.</p>
       <div class="callout warn">
         <span class="ico">grupos</span>
         <p class="ct"><b>A concessão é por associação ao grupo do ativo</b> (não GRANT por usuário). Em produção esses grupos são <b>account groups</b> (<code>GROUPS_SCOPE=account</code>) — principais válidos no UC — e o <b>SP precisa ser gerente</b> deles para incluir/remover membros (ou admin de conta). Em dev sem conta (<code>workspace</code>), a associação funciona mas o grant do grupo não propaga no UC (grupo workspace-local não é principal — D-009); lá o SP precisa poder gerenciar grupos do workspace (ex.: estar em <code>admins</code>).</p>
       </div>
       <div class="refs">
         <span class="ref doc-int">scripts/grant_app_sp.py</span>
-        <a class="ref ext" href="https://docs.databricks.com/aws/en/data-governance/unity-catalog/" target="_blank" rel="noopener">Privilégios do Unity Catalog <span class="ar">↗</span></a>
+        <a class="ref ext" href="https://docs.databricks.com/aws/en/admin/users-groups/groups" target="_blank" rel="noopener">Account groups &amp; gerente <span class="ar">↗</span></a>
         <a class="ref ext" href="https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth" target="_blank" rel="noopener">Autorização da App <span class="ar">↗</span></a>
-        <span class="ref doc-int">docs/DEPLOY.md · §4</span>
+        <span class="ref doc-int">docs/DECISIONS.md · D-014 / D-015</span>
       </div>
     </section>
 
@@ -720,10 +727,10 @@ SHOW GRANTS ON SCHEMA &lt;UC_CATALOG&gt;.&lt;schema_real&gt;;
           <h4>Neste repositório</h4>
           <ul>
             <li><span class="path">docs/DEPLOY.md</span><br><span class="dsc">Runbook completo de deploy (dev e cliente).</span></li>
-            <li><span class="path">docs/DECISIONS.md</span><br><span class="dsc">Decisões de arquitetura (D-001..D-014).</span></li>
+            <li><span class="path">docs/DECISIONS.md</span><br><span class="dsc">Decisões de arquitetura (D-001..D-015).</span></li>
             <li><span class="path">docs/ARQUITETURA-APP.md</span><br><span class="dsc">Rotas do app + de onde busca/grava os dados.</span></li>
             <li><span class="path">db/setup.py</span><br><span class="dsc">Provisionamento idempotente (<code>--mode</code>, <code>--seed</code>).</span></li>
-            <li><span class="path">scripts/grant_app_sp.py</span><br><span class="dsc">Concede as permissões do SP do app.</span></li>
+            <li><span class="path">scripts/grant_app_sp.py</span><br><span class="dsc">Provisionamento UC do SP (MANAGE) — só dev/PROVISION_GROUP_GRANT; prod usa só-membership.</span></li>
           </ul>
         </div>
         <div>

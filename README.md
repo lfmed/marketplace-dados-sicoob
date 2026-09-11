@@ -2,56 +2,68 @@
 
 App de **catálogo e gestão de acesso a dados** (Databricks App · Flask + Jinja2 · Lakebase).
 O catálogo gira em torno do **ativo** (`ativo_aisn`) — a unidade liberável em **qualquer
-nível** (domínio, subdomínio, iniciativa/schema ou tabela). O usuário pede acesso a um ativo
-(para si ou para seu grupo exploratório); a aprovação é em duas etapas — **gestor imediato**
-→ **owner do ativo** — e a efetivação é por **associação ao grupo do ativo** (o grupo detém
-o privilégio no Unity Catalog).
+nível** (domínio, subdomínio, iniciativa/ICA ou tabela). O usuário pede acesso a um ativo
+(para si ou para um grupo do qual é membro); a aprovação é em duas etapas — **gestor
+imediato** → **owner do ativo** — e a efetivação é por **associação ao grupo do ativo** (o
+grupo detém o privilégio no Unity Catalog).
 
 Cobre o MVP dos requisitos (RN-001..042 / RF-001..092) de `Requisitos - App Acesso.pdf`.
 
-## Arquitetura
+## Arquitetura — 3 schemas (modelo oficial do cliente)
 ```
 Usuário ─▶ App Flask (Databricks Apps)
-             ├─ lê  governanca   (catálogo = ativos)  ── SYNC ◀── Delta (UC) = fonte da verdade (Motor)
-             ├─ lê/grava gestao_acesso (ciclo de vida) — nativo no Lakebase
-             ├─ associa o beneficiário ao GRUPO DO ATIVO (SCIM: account groups em prod)
-             └─ provisiona o GRANT do grupo nos objetos UC (por nível: schema/tabela)
+             ├─ lê  governanca     (taxonomia + ativos-origem)   ─┐ Delta do Motor
+             ├─ lê  gestao_acesso  (referência: ativos, grupos)  ─┘ (plataforma), sync → Lakebase
+             ├─ lê/grava marketplace_app (workflow do app)  — nativo no Lakebase
+             └─ associa o beneficiário ao GRUPO DO ATIVO (SCIM: account groups em prod)
 ```
-- **governanca** (16 tabelas): modelo do Motor, mantido em Delta no UC e **sincronizado** para
-  o Lakebase (synced tables nativas em produção; sync controlado no protótipo — ver
-  `docs/DECISIONS.md` D-010/D-011). O app **só lê**. Inclui `ativo_aisn` (driver do catálogo,
-  **polimórfico**: `id_ativo_aisn` = PK da entidade de origem, `cod_tipo_ativo` numérico).
-- **gestao_acesso**: solicitação → autorização hierárquica → aprovação owner → acesso →
-  execução técnica → revogação + trilha de auditoria. Nativo no Lakebase (leitura/escrita).
-- **Concessão = associação a grupo** (não GRANT por usuário): o beneficiário é incluído no
-  grupo do ativo, que detém o privilégio no UC. Ver `docs/ARQUITETURA-APP.md`.
-- Nomenclatura: snake_case + prefixos (`docs/DECISIONS.md` D-001).
+Catálogo Delta **`plataforma`** (parametrizável via `GOV_CATALOG`); nomes de schema também
+parametrizáveis (`SCHEMA_*`). Distribuição:
 
-> **Rotas e fontes de dados:** `docs/ARQUITETURA-APP.md` documenta cada rota, o serviço que
-> ela chama e de onde busca/grava os dados.
+- **`governanca`** (Motor de Governança, **somente leitura**): taxonomia — domínio,
+  subdomínio, iniciativa, camada, ambiente; as combinações **`iniciativa_camada_ambiente`,
+  `subdominio_camada_ambiente`, `dominio_camada_ambiente`**; **`tabela_aisn`** (única com o
+  alvo UC catálogo/schema/tabela); `usuario_aisn`; e os proprietários de domínio/subdomínio/
+  iniciativa.
+- **`gestao_acesso`** (Motor de Acesso, **somente leitura**): `hierarquia_usuario`,
+  `grupo_acesso`, `grupo_acesso_membro`, **`ativo_aisn`** (o driver do catálogo) e
+  `ativo_proprietario`. O ativo é **polimórfico** — `id_ativo_aisn` = PK da combinação de
+  origem, discriminada por `cod_tipo_ativo` (1=ICA, 2=TABELA, 3=SUBDOMINIO, 4=DOMINIO) — e
+  já traz o **grupo embutido** (`nome_grupo_ativo`).
+- **`marketplace_app`** (workflow do App, **leitura/escrita**): solicitação → autorização
+  hierárquica → aprovação owner → acesso → execução técnica → revogação + trilha de auditoria.
+
+Sincronização Delta→Lakebase: synced tables nativas em produção; sync controlado no protótipo
+(ver `docs/DECISIONS.md` D-010/D-011). O **escopo UC** de qualquer ativo é resolvido **sempre
+via `tabela_aisn`** (a ICA não tem schema próprio). **Concessão = associação a grupo** (não
+GRANT por usuário): o beneficiário entra no grupo do ativo, que já detém o privilégio no UC
+(concedido pelo Motor em produção). Nomenclatura: snake_case + prefixos (D-001).
+
+> **Rotas e fontes de dados:** `docs/ARQUITETURA-APP.md` (e `docs/arquitetura-app.html`)
+> documentam cada rota, o serviço que ela chama e de onde busca/grava os dados.
 
 ## Estrutura
 ```
-app/            Flask (factory, config, db, identity, worker)
+app/            Flask (factory, config, db, identity, worker, schemas)
   services/     catálogo, solicitação, aprovação, acesso, ativo_scope, membership/grant executor, auditoria
   routes/       blueprints (catálogo, solicitações, aprovações, acessos, auditoria)
   templates/    Jinja2 (tema Sicoob) · static/style.css
 db/
-  ddl/          01_governanca.sql, 02_gestao_acesso.sql
-  seed/         dataset sintético + build Delta + alvos UC
+  ddl/          01_governanca.sql · 02_gestao_acesso.sql · 03_app.sql (workflow)
+  seed/         dataset sintético + build Delta + alvos UC (dev)
   sync/         sync controlado Delta→Lakebase (dev)
   native_sync_setup.py   synced tables NATIVAS (cliente)
   setup.py      entrypoint único: python -m db.setup --mode dev|native
-tests/          pytest (regras de negócio + e2e com grant real)
-docs/           DECISIONS, DEPLOY, guia de implantação (HTML), modelo de dados
-scripts/        helpers (uc_sql, lb_conn, smoke_fluxo)
+tests/          pytest (regras/modelo + e2e com associação real ao grupo)
+docs/           DECISIONS, DEPLOY, ARQUITETURA-APP, guia de implantação (HTML)
+scripts/        helpers (uc_sql, lb_conn, grant_app_sp, verify_deployed_worker)
 ```
 
-## Rodar localmente
+## Rodar localmente (dev)
 ```bash
 pip install -r requirements.txt
 export DATABRICKS_CONFIG_PROFILE=DEFAULT
-python -m db.setup --mode dev        # provisiona banco + seed (idempotente)
+python -m db.setup --mode dev        # provisiona banco + seed sintético (idempotente)
 python run.py                        # http://localhost:8000
 ```
 No protótipo, use o seletor **"Atuar como (proxy)"** para navegar como solicitante,
@@ -60,76 +72,76 @@ gestor (ex.: Mariana Alves) e owner (ex.: Ana Paula Ribeiro).
 ## Testes
 ```bash
 export DATABRICKS_CONFIG_PROFILE=DEFAULT APP_DISABLE_WORKER=true
-python -m pytest tests/              # 15 regras/modelo (rápido) + 2 e2e (associação real ao grupo, lento)
+python -m pytest tests/              # 16 regras/modelo (rápido) + 2 e2e (associação real ao grupo, lento)
 ```
 > Para o e2e determinístico, pare o app publicado antes (`databricks apps stop marketplace-dados`)
 > e reinicie depois — senão o worker publicado (SP) pode disputar as execuções pendentes.
 
-## Deploy (workspace do cliente)
+---
 
-Guia visual completo: **`guia-implementacao.html`** (na raiz; cópia em `docs/`).
-Runbook detalhado: **`docs/DEPLOY.md`**. O código do banco é parametrizado — nada é fixo
-fora de `app/config.py`. Passo a passo:
+# Deploy no cliente (as tabelas de governança já existem)
 
-### 0. Infraestrutura (o cliente provisiona)
-- Workspace Databricks com **Unity Catalog**; **SQL Warehouse serverless** ativo.
-- **Projeto Lakebase** (autoscaling, PG 17).
-- **Catálogo UC + schemas reais** dos dados (alvos do grant) — já existentes.
-- **Service Principal** do app; **SSO**; **account groups** (se usar grant por grupo).
-- **Base de governança** (domínios, iniciativas, camadas, owners, hierarquia) em Delta,
-  mantida pelo Motor de Governança do cliente.
+Guia visual: **`guia-implementacao.html`** (raiz; cópia em `docs/`). Runbook: **`docs/DEPLOY.md`**.
+No cliente, `governanca` e `gestao_acesso` (com **ativos, grupos e proprietários**) **já são
+mantidos pelo Motor** em Delta (`plataforma.*`) — o app **não os cria nem semeia**. O app só
+cria o próprio schema de workflow (`marketplace_app`) e consome o resto.
+
+### 0. O que o cliente provisiona (o resto já existe)
+- **Projeto Lakebase** (autoscaling, PG 17) para o app.
+- **SQL Warehouse serverless** ativo (para registrar as synced tables / DDL).
+- **Service Principal** do app; **SSO** na workspace.
+- **`plataforma.governanca` + `plataforma.gestao_acesso`** já criados e populados pelo Motor
+  (taxonomia, `tabela_aisn`, `ativo_aisn` com `nome_grupo_ativo`, `grupo_acesso`, owners…).
+- **Account groups** dos ativos já existentes (os `nome_grupo_ativo`), com o **GRANT já
+  concedido** nos objetos pelo Motor/governança.
 
 ### 1. Obter o código
 ```bash
 git clone https://github.com/lfmed/marketplace-dados-sicoob.git
-cd marketplace-dados-sicoob
-pip install -r requirements.txt
+cd marketplace-dados-sicoob && pip install -r requirements.txt
 ```
-Ou via **Git folders** do Databricks (Workspace → Repos → Add repo, ou
-`databricks repos create <url> gitHub --path /Workspace/Users/<voce>/marketplace-dados`).
+Ou via **Git folders** do Databricks (Workspace → Repos → Add repo).
 
-### 2. Autenticar o CLI + criar o Lakebase
+### 2. Autenticar + criar o Lakebase
 ```bash
 databricks auth login --host https://<workspace>.cloud.databricks.com
 databricks postgres create-project marketplace-dados \
   --json '{"spec":{"display_name":"Marketplace Dados Sicoob","pg_version":"17"}}'
 ```
 
-### 3. Configurar (`app.yaml` / env)
+### 3. Configurar (`app.yaml` / env) — catálogo e schema parametrizáveis
 ```
-UC_CATALOG            catálogo UC existente onde ficam os schemas de dados
-DATABRICKS_WAREHOUSE_ID   warehouse p/ DDL e GRANT/REVOKE
+GOV_CATALOG           plataforma        # catálogo Delta do Motor (governanca + gestao_acesso)
+SCHEMA_GOVERNANCA     governanca
+SCHEMA_GESTAO         gestao_acesso
+SCHEMA_APP            marketplace_app   # schema do workflow do app (criado pelo app)
 LAKEBASE_ENDPOINT     projects/marketplace-dados/branches/production/endpoints/primary
-LAKEBASE_UC_CATALOG   catálogo que registra o Lakebase no UC (ex.: lakebase_marketplace)
+DATABRICKS_WAREHOUSE_ID  <warehouse-id>
+GROUPS_SCOPE          account           # grupos de conta (principais do UC)
+DATABRICKS_ACCOUNT_ID <account-id>
+PROVISION_GROUP_GRANT false             # o Motor já concede o grant do grupo; app só faz membership
 GRANT_EXECUTE_REAL    true
-APP_ENABLE_PROXY      false   # produção: identidade só por SSO (X-Forwarded-Email)
-GROUPS_SCOPE          account # produção: grupos de conta (dev sem conta: workspace)
-DATABRICKS_ACCOUNT_ID <account-id>   # exigido quando GROUPS_SCOPE=account
+APP_ENABLE_PROXY      false             # identidade só por SSO (X-Forwarded-Email)
 ```
 
-### 4. Provisionar o banco
+### 4. Provisionar o banco (sem seed — governança já existe)
 ```bash
-# Produção: synced tables nativas, sem seed sintético (requer CREATE CATALOG no metastore)
 python -m db.setup --mode native --no-seed
-# Dev/demo: sync controlado + seed sintético
-python -m db.setup --mode dev
 ```
-Cria `gestao_acesso` no Lakebase e o espelho `governanca` (synced tables do Delta real).
-Seed opcional: `--seed` / `--no-seed`. As tabelas também podem ser criadas manualmente
-(`psql -f db/ddl/02_gestao_acesso.sql`) e a governança populada pelo seu próprio ETL.
+Cria o schema **`marketplace_app`** (workflow do app) no Lakebase e registra as **synced
+tables nativas** de `plataforma.governanca` e `plataforma.gestao_acesso` (mirror somente
+leitura). **Não** cria nem semeia a governança (já existe, mantida pelo Motor).
 
-### 5. Permissões do service principal
-```bash
-python scripts/grant_app_sp.py <sp_client_id>
-```
-Concede `USE CATALOG` + `MANAGE` no catálogo/schemas, `CAN_USE` no warehouse e um role no
-Lakebase. Comandos explícitos em `docs/DEPLOY.md` §4.
+### 5. Permissões do service principal (concessão = membership)
+- **Gerente dos account groups dos ativos** — para incluir/remover membros (é a concessão).
+  Em produção o SP **não** precisa de `MANAGE` nos schemas de dados: o Motor já concedeu o
+  grant do grupo (`PROVISION_GROUP_GRANT=false`).
+- **Role no Lakebase** (OAuth) para conectar no Postgres.
+- **`CAN_USE`** no warehouse.
+- **`SELECT`** nas tabelas Delta `plataforma.governanca.*` e `plataforma.gestao_acesso.*`
+  (para as synced tables lerem a origem).
 
-**Concessão por grupo:** como a efetivação inclui o beneficiário no **grupo do ativo**, o SP
-do app precisa poder **gerenciar a associação desses grupos**. Em produção (grupos de conta,
-`GROUPS_SCOPE=account`), torne o SP **gerente dos grupos de conta** (ou admin de conta). Em
-dev (grupos workspace-local), o SP precisa poder gerenciar grupos do workspace (ex.: estar em
-`admins`). Ver `docs/DEPLOY.md` §2.
+Comandos explícitos em `docs/DEPLOY.md` §4.
 
 ### 6. Publicar no Databricks Apps
 ```bash
@@ -144,6 +156,10 @@ Runtime `gunicorn -c gunicorn.conf.py app:app` (`app.yaml`); bind em `DATABRICKS
 ### 7. Verificar
 ```bash
 curl -s https://<app-url>/health          # -> {"status":"ok"}
-python -m pytest tests/                    # regras + e2e com grant real
-# conferir no UC:  SHOW GRANTS ON SCHEMA <UC_CATALOG>.<schema_real>
+```
+No app: **solicitar → autorizar (gestor) → aprovar (owner do ativo) → efetivar**. Confirme que
+o beneficiário **virou membro** do account group do ativo e que o grupo **detém o `SELECT`**
+no objeto:
+```sql
+SHOW GRANTS ON SCHEMA <catalogo>.<schema_real>;   -- o grupo do ativo aparece com SELECT
 ```
