@@ -29,6 +29,9 @@ class Config:
     UC_CATALOG = os.getenv("UC_CATALOG", "stable_classic_pg4xe1_catalog")
     # Prefixo dos schemas de exemplo (unidade funcional = iniciativa+camada+ambiente)
     UC_SCHEMA_PREFIX = os.getenv("UC_SCHEMA_PREFIX", "mkt")
+    # Catálogo Delta onde o Motor mantém governanca + gestao_acesso (cliente: "plataforma").
+    # Dev: usa o próprio UC_CATALOG (não é possível criar o catálogo do cliente aqui).
+    GOV_CATALOG = os.getenv("GOV_CATALOG", os.getenv("UC_CATALOG", "stable_classic_pg4xe1_catalog"))
 
     # --- SQL Warehouse usado para executar DDL/GRANT/REVOKE no UC ---
     WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "b8e52268d9828bdd")
@@ -48,8 +51,12 @@ class Config:
         "projects/marketplace-dados/branches/production/endpoints/primary",
     )
     LAKEBASE_DBNAME = os.getenv("LAKEBASE_DBNAME", "databricks_postgres")
+    # Nomes de schema PARAMETRIZÁVEIS (dev = seu catálogo fixo; cliente = plataforma).
+    # governanca: taxonomia (Motor de Governança). gestao_acesso: referência de acesso do
+    # Motor (hierarquia, grupos, ativos, proprietários). marketplace_app: workflow do App.
     SCHEMA_GOVERNANCA = os.getenv("SCHEMA_GOVERNANCA", "governanca")
     SCHEMA_GESTAO = os.getenv("SCHEMA_GESTAO", "gestao_acesso")
+    SCHEMA_APP = os.getenv("SCHEMA_APP", "marketplace_app")
 
     # --- Identidade / demo ---
     # Em prod: identidade via SSO (header X-Forwarded-Email). Em dev: proxy "atuar como".
@@ -60,6 +67,10 @@ class Config:
     # --- Efetivação técnica ---
     # true = executa GRANT/REVOKE reais no UC (D-003); false = simula (registra só o log)
     GRANT_EXECUTE_REAL = _b(os.getenv("GRANT_EXECUTE_REAL"), True)
+    # Provisionamento do GRANT do grupo do ativo nos objetos. Em PRODUÇÃO o grupo já vem
+    # concedido pelo Motor/governança -> false (o app só gerencia membership). Em dev
+    # (sem Motor) -> true para a demo ter efeito. Default true (dev); cliente define false.
+    PROVISION_GROUP_GRANT = _b(os.getenv("PROVISION_GROUP_GRANT"), True)
     # SLA de efetivação (RN-030): 30 minutos
     EFETIVACAO_SLA_MIN = int(os.getenv("EFETIVACAO_SLA_MIN", "30"))
 

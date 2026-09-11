@@ -1,49 +1,43 @@
-"""Executor de CONCESSÃO/REVOGAÇÃO por ASSOCIAÇÃO A GRUPO (modelo do cliente).
+"""Executor de CONCESSÃO/REVOGAÇÃO por ASSOCIAÇÃO A GRUPO (modelo oficial do cliente).
 
-O acesso é concedido incluindo o beneficiário no GRUPO DO ATIVO
-(`ativo_aisn.id_grupo_acesso`), que detém o privilégio no Unity Catalog:
-  - beneficiário NOMINAL  -> inclui o USUÁRIO (por e-mail/SP) como membro do grupo do ativo;
-  - beneficiário GRUPO    -> inclui o GRUPO EXPLORATÓRIO do usuário (grupo aninhado).
-Revogar = remover essa associação. Idempotente (RN-041).
+Concede incluindo o beneficiário no GRUPO DO ATIVO (`ativo_aisn.nome_grupo_ativo`), que
+detém o privilégio no Unity Catalog:
+  - NOMINAL -> inclui o USUÁRIO (por e-mail/SP) como membro do grupo do ativo;
+  - GRUPO   -> inclui o GRUPO exploratório do usuário (grupo aninhado).
+Revogar = remover a associação. Idempotente (RN-041).
 
-Na CONCESSÃO também garante (best-effort) o GRANT do grupo do ativo nos objetos UC
-(ver grant_executor.provisionar_ativo).
-
-ESCOPO DOS GRUPOS (config.GROUPS_SCOPE): em PRODUÇÃO os grupos são de CONTA
-(`account`) — geridos via AccountClient e principais válidos p/ GRANT no UC. Em DEV,
-sem acesso à conta, são workspace-local (`workspace`). O cliente SCIM é resolvido por
-`db.get_groups_client()`, que expõe a mesma interface nos dois escopos, então este
-executor é agnóstico. Em produção, garanta que o SP do app tenha direito de gerente
-dos grupos de conta (ou admin de conta).
+Provisionamento do GRANT do grupo (grant_executor.provisionar_ativo) só quando
+config.PROVISION_GROUP_GRANT (dev). Em PRODUÇÃO o grupo já vem concedido pelo Motor ->
+o app faz apenas a associação. Escopo dos grupos via db.get_groups_client()
+(account em produção; workspace em dev). Requer o SP como gerente dos grupos (D-014).
 """
 from app.config import config
 from app import db
 from app import constants as C
+from app.schemas import GOV, ACC
 from app.services import grant_executor
 
 
 def _grupo_do_ativo(id_ativo):
+    # nome_grupo_ativo está direto na ativo_aisn (modelo oficial)
     return db.query_one(
-        """SELECT g.id_grupo_acesso, g.nome_grupo
-             FROM governanca.ativo_aisn a
-             JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
-            WHERE a.id_ativo_aisn=%s""", (id_ativo,))
+        f"""SELECT id_grupo_acesso, nome_grupo_ativo AS nome_grupo
+             FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s""", (id_ativo,))
 
 
 def _beneficiario(acesso):
-    """(tipo_membro, chave) do membro a incluir: ('USUARIO', email) | ('GRUPO', nome_grupo)."""
+    """(tipo_membro, chave): ('USUARIO', email) | ('GRUPO', nome_grupo)."""
     if acesso["cod_tipo_beneficiario"] == C.B_NOMINAL:
-        u = db.query_one("SELECT desc_email FROM governanca.usuario_aisn WHERE id_usuario_aisn=%s",
+        u = db.query_one(f"SELECT desc_email FROM {GOV}.usuario_aisn WHERE id_usuario_aisn=%s",
                          (acesso["id_usuario_beneficiario"],))
         return "USUARIO", (u or {}).get("desc_email")
-    g = db.query_one("SELECT nome_grupo FROM governanca.grupo_acesso WHERE id_grupo_acesso=%s",
+    g = db.query_one(f"SELECT nome_grupo FROM {ACC}.grupo_acesso WHERE id_grupo_acesso=%s",
                      (acesso["id_grupo_acesso"],))
     return "GRUPO", (g or {}).get("nome_grupo")
 
 
 # ---------------- Integração SCIM (workspace/account groups) ----------------
 def _ensure_group(w, nome_grupo):
-    """Resolve (ou cria) o grupo do ativo no workspace/conta e retorna seu id SCIM."""
     existing = list(w.groups.list(filter=f'displayName eq "{nome_grupo}"'))
     if existing:
         return existing[0].id
@@ -51,7 +45,6 @@ def _ensure_group(w, nome_grupo):
 
 
 def _resolver_membro(w, tipo_membro, chave):
-    """id SCIM do membro. USUARIO tenta usuário (userName) e, se não achar, SP (applicationId)."""
     if tipo_membro == "GRUPO":
         gs = list(w.groups.list(filter=f'displayName eq "{chave}"'))
         return gs[0].id if gs else None
@@ -86,10 +79,10 @@ def _remove_member(w, group_id, member_id, iam):
 
 
 def executar(operacao, acesso):
-    """Executa a operação de associação. Retorna (ok: bool, comando: str, erro: str|None)."""
+    """Executa a associação. Retorna (ok: bool, comando: str, erro: str|None)."""
     grupo = _grupo_do_ativo(acesso.get("id_ativo_aisn"))
     if not grupo or not grupo.get("nome_grupo"):
-        return False, "", "ativo sem grupo de acesso definido (id_grupo_acesso)"
+        return False, "", "ativo sem grupo de acesso definido (nome_grupo_ativo)"
     nome_grupo_ativo = grupo["nome_grupo"]
     tipo_membro, chave = _beneficiario(acesso)
     if not chave:
@@ -107,13 +100,13 @@ def executar(operacao, acesso):
     try:
         gid = _ensure_group(w, nome_grupo_ativo)
         if operacao == C.OP_CONCESSAO:
-            # provisiona o grupo do ativo nos objetos UC (best-effort — não bloqueia a associação)
-            ativo = db.query_one("SELECT * FROM governanca.ativo_aisn WHERE id_ativo_aisn=%s",
-                                 (acesso["id_ativo_aisn"],))
-            ok_p, cmds_p, err_p = grant_executor.provisionar_ativo(
-                ativo, nome_grupo_ativo, acesso.get("cod_tipo_acesso"))
-            linhas += [f"-- provisionamento do grupo: {'ok' if ok_p else 'aviso: ' + (err_p or '')}"]
-            linhas += cmds_p
+            if config.PROVISION_GROUP_GRANT:  # dev: garante o GRANT do grupo (prod: Motor faz)
+                ativo = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s",
+                                     (acesso["id_ativo_aisn"],))
+                ok_p, cmds_p, err_p = grant_executor.provisionar_ativo(
+                    ativo, nome_grupo_ativo, acesso.get("cod_tipo_acesso"))
+                linhas += [f"-- provisionamento do grupo: {'ok' if ok_p else 'aviso: ' + (err_p or '')}"]
+                linhas += cmds_p
             mid = _resolver_membro(w, tipo_membro, chave)
             if not mid:
                 return False, "\n".join(linhas), f"membro '{chave}' não encontrado no workspace/conta"

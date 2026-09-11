@@ -1,8 +1,10 @@
-"""Solicitações de acesso (RF-011..021) — agora ancoradas no ATIVO."""
+"""Solicitações de acesso (RF-011..021) — ancoradas no ATIVO. Modelo oficial do cliente:
+governanca={GOV} (taxonomia), gestao_acesso={ACC} (referência de acesso), workflow={APP}."""
 import uuid
 
 from app import db
 from app import constants as C
+from app.schemas import GOV, ACC, APP
 from app.services import audit_service, ativo_scope
 from app.services.ativo_scope import objetos_do_ativo, rotulo_objeto
 
@@ -14,19 +16,19 @@ class RegraNegocioError(Exception):
 # ---------------- Apoio (hierarquia / grupos) ----------------
 def gestor_imediato(id_usuario):
     return db.query_one(
-        """SELECT u.* FROM governanca.hierarquia_usuario h
-             JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=h.id_gestor_aisn
+        f"""SELECT u.* FROM {ACC}.hierarquia_usuario h
+             JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=h.id_gestor_aisn
             WHERE h.id_usuario_aisn=%s AND h.bol_atual=true LIMIT 1""",
         (id_usuario,))
 
 
 def superiores(id_usuario):
     rows = db.query(
-        """WITH RECURSIVE sup AS (
-             SELECT id_gestor_aisn FROM governanca.hierarquia_usuario
+        f"""WITH RECURSIVE sup AS (
+             SELECT id_gestor_aisn FROM {ACC}.hierarquia_usuario
               WHERE id_usuario_aisn=%s AND bol_atual=true
              UNION
-             SELECT h.id_gestor_aisn FROM governanca.hierarquia_usuario h
+             SELECT h.id_gestor_aisn FROM {ACC}.hierarquia_usuario h
                JOIN sup ON h.id_usuario_aisn = sup.id_gestor_aisn
               WHERE h.bol_atual=true)
            SELECT id_gestor_aisn FROM sup""",
@@ -39,13 +41,14 @@ def e_superior(id_gestor, id_usuario):
 
 
 def grupos_do_usuario(id_usuario):
-    """Grupos exploratórios em nome dos quais o usuário pode solicitar (RF-047, RN-007)."""
+    """Grupos em nome dos quais o usuário pode solicitar (RF-047, RN-007). Sem tipo_grupo
+    no modelo oficial → todos os grupos de que o usuário é membro (entidade USUARIO)."""
     return db.query(
-        """SELECT g.id_grupo_acesso, g.nome_grupo, g.tipo_grupo
-             FROM governanca.grupo_acesso_membro m
-             JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=m.id_grupo_acesso
+        f"""SELECT g.id_grupo_acesso, g.nome_grupo
+             FROM {ACC}.grupo_acesso_membro m
+             JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=m.id_grupo_acesso
             WHERE m.id_entidade=%s AND m.bol_atual=true AND g.bol_atual=true
-              AND g.tipo_grupo='EXPLORATORIO'
+              AND (m.tipo_entidade='USUARIO' OR m.tipo_entidade IS NULL)
             ORDER BY g.nome_grupo""",
         (id_usuario,))
 
@@ -53,22 +56,21 @@ def grupos_do_usuario(id_usuario):
 # ---------------- Regras ----------------
 def _ativo_com_owner(id_ativo):
     return db.query_one(
-        """SELECT 1 AS ok FROM governanca.ativo_proprietario
-            WHERE id_ativo_aisn=%s AND bol_atual=true LIMIT 1""", (id_ativo,)) is not None
+        f"""SELECT 1 AS ok FROM {ACC}.ativo_proprietario
+             WHERE id_ativo_aisn=%s AND bol_atual=true LIMIT 1""", (id_ativo,)) is not None
 
 
 def _conflito_duplicidade(tipo_benef, id_benef_user, id_grupo, tipo_acesso, id_ativo):
-    """RN-010/RF-018: bloqueia solicitação ativa OU acesso vigente equivalente
-    (mesmo beneficiário + ativo + tipo de acesso). Ignora acessos já revogados."""
+    """RN-010/RF-018: bloqueia solicitação ativa OU acesso vigente equivalente. Ignora revogados."""
     nominal = tipo_benef == C.B_NOMINAL
     benef_cond = "s.id_usuario_beneficiario=%s" if nominal else "s.id_grupo_acesso=%s"
     benef_val = id_benef_user if nominal else id_grupo
     dup_sol = db.query_one(
-        f"""SELECT 1 AS ok FROM gestao_acesso.solicitacao_acesso s
+        f"""SELECT 1 AS ok FROM {APP}.solicitacao_acesso s
              WHERE s.cod_tipo_beneficiario=%s AND {benef_cond}
                AND s.cod_tipo_acesso=%s AND s.id_ativo_aisn=%s
                AND s.cod_status_solicitacao IN ('PENDENTE_AUTORIZACAO','AUTORIZADA','APROVADA_OWNER')
-               AND NOT EXISTS (SELECT 1 FROM gestao_acesso.acesso a
+               AND NOT EXISTS (SELECT 1 FROM {APP}.acesso a
                                 WHERE a.id_solicitacao_acesso=s.id_solicitacao_acesso
                                   AND a.cod_status_acesso='REVOGADO')
              LIMIT 1""",
@@ -77,7 +79,7 @@ def _conflito_duplicidade(tipo_benef, id_benef_user, id_grupo, tipo_acesso, id_a
         return "já existe uma solicitação ativa para este ativo"
     benef_cond_a = "a.id_usuario_beneficiario=%s" if nominal else "a.id_grupo_acesso=%s"
     dup_ac = db.query_one(
-        f"""SELECT 1 AS ok FROM gestao_acesso.acesso a
+        f"""SELECT 1 AS ok FROM {APP}.acesso a
              WHERE a.cod_tipo_beneficiario=%s AND {benef_cond_a}
                AND a.cod_tipo_acesso=%s AND a.id_ativo_aisn=%s
                AND a.cod_status_acesso IN ('APROVADO_AGUARDANDO_EFETIVACAO','EFETIVADO')
@@ -97,22 +99,20 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
         raise RegraNegocioError("Usuário não cadastrado no catálogo; não é possível solicitar.")
 
     ativo = db.query_one(
-        "SELECT * FROM governanca.ativo_aisn WHERE id_ativo_aisn=%s AND bol_atual=true", (id_ativo,))
+        f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s AND bol_atual=true", (id_ativo,))
     if not ativo:
         raise RegraNegocioError("Ativo não encontrado no catálogo.")
     if not ativo.get("bol_elegivel_acesso"):
         raise RegraNegocioError("Ativo não está elegível para acesso.")
-    # RN-005: ativo precisa ter owner
     if not _ativo_com_owner(id_ativo):
         raise RegraNegocioError("Ativo sem owner definido não está disponível para solicitação.")
 
-    # Beneficiário (nominal = próprio solicitante; grupo = grupo exploratório do qual é membro)
     if tipo_benef == C.B_GRUPO:
         if not id_grupo:
             raise RegraNegocioError("Grupo beneficiário não informado.")
         membro = db.query_one(
-            """SELECT 1 AS ok FROM governanca.grupo_acesso_membro
-                WHERE id_grupo_acesso=%s AND id_entidade=%s AND bol_atual=true""",
+            f"""SELECT 1 AS ok FROM {ACC}.grupo_acesso_membro
+                 WHERE id_grupo_acesso=%s AND id_entidade=%s AND bol_atual=true""",
             (id_grupo, id_solicitante))
         if not membro:
             raise RegraNegocioError("Você não é membro do grupo informado (RN-007).")
@@ -132,23 +132,18 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
     if gestor["id_usuario_aisn"] == id_solicitante:
         raise RegraNegocioError("O solicitante não pode autorizar a própria solicitação (RN-014).")
 
-    # A solicitação ancora no ativo (id_ativo_aisn). iniciativa/ambiente ficam nulos:
-    # o nível/escopo é derivado do ativo quando necessário (ativo_scope).
-    id_ini = None
-
     id_sol = uuid.uuid4().hex
     with db.get_conn(autocommit=False) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO gestao_acesso.solicitacao_acesso
+                f"""INSERT INTO {APP}.solicitacao_acesso
                    (id_solicitacao_acesso, id_usuario_solicitante, cod_tipo_beneficiario,
-                    id_usuario_beneficiario, id_grupo_acesso, id_ativo_aisn, id_iniciativa_aisn,
-                    id_ambiente_aisn, cod_tipo_acesso, desc_justificativa, cod_status_solicitacao,
+                    id_usuario_beneficiario, id_grupo_acesso, id_ativo_aisn,
+                    cod_tipo_acesso, desc_justificativa, cod_status_solicitacao,
                     id_usuario_autorizador_previsto)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (id_sol, id_solicitante, tipo_benef, id_beneficiario, id_grupo, id_ativo,
-                 id_ini, None, tipo_acesso, justificativa, C.S_PENDENTE_AUTORIZACAO,
-                 gestor["id_usuario_aisn"]))
+                 tipo_acesso, justificativa, C.S_PENDENTE_AUTORIZACAO, gestor["id_usuario_aisn"]))
             audit_service.registrar(
                 cur, C.EV_SOLICITACAO_CRIADA, id_solicitacao=id_sol, id_usuario=id_solicitante,
                 detalhe=f"ativo: {ativo['nome_ativo']} "
@@ -163,12 +158,12 @@ def listar_do_usuario(id_usuario):
     return db.query(
         f"""SELECT s.*, a.nome_ativo, a.cod_tipo_ativo, {ativo_scope.ativo_cols("a")},
                   g.nome_grupo, ubenef.nome_completo AS nome_beneficiario, ac.cod_status_acesso
-             FROM gestao_acesso.solicitacao_acesso s
-             LEFT JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             FROM {APP}.solicitacao_acesso s
+             LEFT JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
              {ativo_scope.ativo_join("a")}
-             LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
-             LEFT JOIN governanca.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
-             LEFT JOIN gestao_acesso.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
+             LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
+             LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
+             LEFT JOIN {APP}.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
             WHERE s.id_usuario_solicitante=%s
             ORDER BY s.datahora_criacao DESC""",
         (id_usuario,))
@@ -181,28 +176,26 @@ def detalhe(id_solicitacao):
                   usol.nome_completo AS nome_solicitante,
                   uaut.nome_completo AS nome_autorizador_previsto,
                   ac.id_acesso, ac.cod_status_acesso, ac.datahora_efetivacao
-             FROM gestao_acesso.solicitacao_acesso s
-             LEFT JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             FROM {APP}.solicitacao_acesso s
+             LEFT JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
              {ativo_scope.ativo_join("a")}
-             JOIN governanca.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
-             LEFT JOIN governanca.usuario_aisn uaut ON uaut.id_usuario_aisn=s.id_usuario_autorizador_previsto
-             LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
-             LEFT JOIN governanca.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
-             LEFT JOIN gestao_acesso.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
+             JOIN {GOV}.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
+             LEFT JOIN {GOV}.usuario_aisn uaut ON uaut.id_usuario_aisn=s.id_usuario_autorizador_previsto
+             LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
+             LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
+             LEFT JOIN {APP}.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
             WHERE s.id_solicitacao_acesso=%s""",
         (id_solicitacao,))
     if not s:
         return None
-    # Escopo UC concreto resolvido pelo nível do ativo
     objs = objetos_do_ativo(s)
     for o in objs:
         o["rotulo"] = rotulo_objeto(o)
     s["objetos"] = objs
-    # Owners do ATIVO (usados na etapa pendente de aprovação do owner)
     s["owners"] = db.query(
-        """SELECT u.nome_completo, p.bol_principal
-             FROM governanca.ativo_proprietario p
-             JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
+        f"""SELECT u.nome_completo, p.bol_principal
+             FROM {ACC}.ativo_proprietario p
+             JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
             WHERE p.id_ativo_aisn=%s AND p.bol_atual=true
             ORDER BY p.bol_principal DESC, u.nome_completo""",
         (s["id_ativo_aisn"],)) if s.get("id_ativo_aisn") else []
@@ -213,7 +206,7 @@ def detalhe(id_solicitacao):
 def cancelar(id_solicitacao, id_usuario):
     """RN-011: solicitante cancela enquanto elegível."""
     s = db.query_one(
-        "SELECT * FROM gestao_acesso.solicitacao_acesso WHERE id_solicitacao_acesso=%s",
+        f"SELECT * FROM {APP}.solicitacao_acesso WHERE id_solicitacao_acesso=%s",
         (id_solicitacao,))
     if not s:
         raise RegraNegocioError("Solicitação não encontrada.")
@@ -224,7 +217,7 @@ def cancelar(id_solicitacao, id_usuario):
     with db.get_conn(autocommit=False) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE gestao_acesso.solicitacao_acesso
+                f"""UPDATE {APP}.solicitacao_acesso
                       SET cod_status_solicitacao=%s, datahora_atualizacao=now()
                     WHERE id_solicitacao_acesso=%s""",
                 (C.S_CANCELADA, id_solicitacao))

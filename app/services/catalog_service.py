@@ -1,10 +1,9 @@
-"""Catálogo de produtos de dados — ATIVO-cêntrico (RF-006/007).
-O ATIVO (`ativo_aisn`) é o driver da vitrine: é a unidade liberável em qualquer nível
-(domínio/subdomínio/ICA/tabela). Os DETALHES (breadcrumb + alvo UC) são resolvidos
-navegando as relações do modelo (ver ativo_scope), não colunas denormalizadas.
-Só expõe ativos elegíveis e com owner (RN-005)."""
+"""Catálogo de produtos de dados — ATIVO-cêntrico (RF-006/007), modelo oficial do cliente.
+O ATIVO ({ACC}.ativo_aisn) é o driver; os detalhes (breadcrumb) e o escopo UC são
+navegados nas relações de {GOV} (ver ativo_scope). Só expõe ativos elegíveis e com owner."""
 from app import db
 from app import constants as C
+from app.schemas import GOV, ACC
 from app.services import ativo_scope
 from app.services.ativo_scope import objetos_do_ativo, rotulo_objeto
 
@@ -14,27 +13,26 @@ TIPO_LABEL = C.TIPO_ATIVO_LABEL      # código -> rótulo
 
 def listar_dominios():
     return db.query(
-        "SELECT id_dominio_informacao, nome_dominio FROM governanca.dominio_informacao "
-        "WHERE bol_atual=true AND bol_excluido=false ORDER BY nome_dominio")
+        f"SELECT id_dominio_informacao, nome_dominio FROM {GOV}.dominio_informacao "
+        f"WHERE bol_atual=true AND bol_excluido=false ORDER BY nome_dominio")
 
 
 def listar_subdominios(id_dominio=None):
     if id_dominio:
         return db.query(
-            "SELECT id_subdominio_informacao, id_dominio_informacao, nome_subdominio "
-            "FROM governanca.subdominio_informacao WHERE bol_atual=true AND id_dominio_informacao=%s "
-            "ORDER BY nome_subdominio", (id_dominio,))
+            f"SELECT id_subdominio_informacao, id_dominio_informacao, nome_subdominio "
+            f"FROM {GOV}.subdominio_informacao WHERE bol_atual=true AND id_dominio_informacao=%s "
+            f"ORDER BY nome_subdominio", (id_dominio,))
     return db.query(
-        "SELECT id_subdominio_informacao, id_dominio_informacao, nome_subdominio "
-        "FROM governanca.subdominio_informacao WHERE bol_atual=true ORDER BY nome_subdominio")
+        f"SELECT id_subdominio_informacao, id_dominio_informacao, nome_subdominio "
+        f"FROM {GOV}.subdominio_informacao WHERE bol_atual=true ORDER BY nome_subdominio")
 
 
 def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
-    """Cards do catálogo = ativos. Apenas com owner (RN-005) e elegíveis.
-    Breadcrumb (domínio/subdomínio) derivado polimorficamente das relações."""
+    """Cards do catálogo = ativos ({ACC}.ativo_aisn). Apenas com owner (RN-005) e elegíveis."""
     where = ["a.bol_atual=true", "a.bol_excluido=false", "a.bol_elegivel_acesso=true",
-             "EXISTS (SELECT 1 FROM governanca.ativo_proprietario p "
-             "        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true)"]
+             f"EXISTS (SELECT 1 FROM {ACC}.ativo_proprietario p "
+             f"        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true)"]
     params = []
     if id_dominio:
         where.append(f"{ativo_scope.dominio_id_expr()}=%s"); params.append(id_dominio)
@@ -47,14 +45,13 @@ def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
         b = f"%{busca.lower()}%"; params += [b, b]
     sql = f"""
         SELECT a.id_ativo_aisn, a.cod_tipo_ativo, a.nome_ativo, a.desc_ativo,
-               {ativo_scope.ativo_cols("a")}, g.nome_grupo,
+               a.nome_grupo_ativo AS nome_grupo, {ativo_scope.ativo_cols("a")},
                (SELECT string_agg(DISTINCT u.nome_completo, ', ')
-                  FROM governanca.ativo_proprietario p
-                  JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
+                  FROM {ACC}.ativo_proprietario p
+                  JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
                  WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true) AS owners
-          FROM governanca.ativo_aisn a
+          FROM {ACC}.ativo_aisn a
           {ativo_scope.ativo_join("a")}
-          LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
          WHERE {' AND '.join(where)}
          ORDER BY CASE a.cod_tipo_ativo WHEN '{C.AT_DOMINIO}' THEN 0 WHEN '{C.AT_SUBDOMINIO}' THEN 1
                        WHEN '{C.AT_ICA}' THEN 2 ELSE 3 END,
@@ -65,10 +62,9 @@ def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
 
 def ativo_por_id(id_ativo):
     return db.query_one(
-        f"""SELECT a.*, {ativo_scope.ativo_cols("a")}, g.nome_grupo
-             FROM governanca.ativo_aisn a
+        f"""SELECT a.*, a.nome_grupo_ativo AS nome_grupo, {ativo_scope.ativo_cols("a")}
+             FROM {ACC}.ativo_aisn a
              {ativo_scope.ativo_join("a")}
-             LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
             WHERE a.id_ativo_aisn=%s""", (id_ativo,))
 
 
@@ -78,12 +74,11 @@ def detalhe_ativo(id_ativo):
         return None
     a["tipo_label"] = TIPO_LABEL.get(a["cod_tipo_ativo"], a.get("tipo_label") or a["cod_tipo_ativo"])
     a["owners"] = db.query(
-        """SELECT u.id_usuario_aisn, u.nome_completo, u.desc_email, p.bol_principal
-             FROM governanca.ativo_proprietario p
-             JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
+        f"""SELECT u.id_usuario_aisn, u.nome_completo, u.desc_email, p.bol_principal
+             FROM {ACC}.ativo_proprietario p
+             JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
             WHERE p.id_ativo_aisn=%s AND p.bol_atual=true
             ORDER BY p.bol_principal DESC, u.nome_completo""", (id_ativo,))
-    # Escopo UC concreto (o que o GRUPO DO ATIVO detém), resolvido pelo nível
     objs = objetos_do_ativo(a)
     for o in objs:
         o["rotulo"] = rotulo_objeto(o)

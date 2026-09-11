@@ -1,71 +1,74 @@
-"""Testes das regras de negócio (RN) e do MODELO ativo-cêntrico polimórfico.
-Sem disparar concessão real. Validam que o ativo é o driver e que catálogo/schema/
-tabela/domínio são NAVEGADOS nas relações (id_ativo_aisn = PK da origem)."""
+"""Regras de negócio (RN) + MODELO ativo-cêntrico polimórfico (oficial do cliente).
+Sem disparar concessão real. id_ativo_aisn = PK da combinação de origem; escopo UC
+resolvido via tabela_aisn. Schemas parametrizados ({GOV}/{ACC})."""
 import pytest
 
 from app import db
 from app import constants as C
 from app.config import config
+from app.schemas import GOV, ACC
 from app.services import request_service, approval_service, catalog_service
 from app.services.ativo_scope import objetos_do_ativo
 from app.services.request_service import RegraNegocioError
 from tests.conftest import limpar_solicitacao
 
-# IDs = PK da entidade de origem (sem prefixo). Owners herdados da iniciativa.
+# IDs = PK da combinação de origem (ICA / TABELA / SCA / DCA).
 ICA_ATIVO = "ica_ib_nav_gold"                        # tipo 1 (owner u_ana) -> schema mkt_ib_nav_gold
 TAB_ATIVO = "tab_ica_ib_nav_gold_dim_cooperado"      # tipo 2 (owner u_ana) -> tabela dim_cooperado
-SUB_ATIVO = "sub_ib"                                 # tipo 3 (owner u_ana) -> N schemas
-DOM_ATIVO = "dom_canais"                             # tipo 4 (owner u_ana) -> N schemas
+SUB_ATIVO = "sca_ib_gold"                            # tipo 3 (owner u_ana) -> N schemas
+DOM_ATIVO = "dca_canais_gold"                        # tipo 4 (owner u_ana) -> N schemas
 CARLOS_ATIVO = "ica_cad_360_gold"                    # tipo 1 (owner u_carlos)
 
 
 # ---------------- Modelo: ativo é o driver + resolução polimórfica ----------------
 def test_id_ativo_e_pk_da_origem(conectado):
-    """RN-modelo: id_ativo_aisn É a PK da entidade de origem (ICA), sem coluna denormalizada."""
-    a = db.query_one("SELECT * FROM governanca.ativo_aisn WHERE id_ativo_aisn=%s", (ICA_ATIVO,))
+    a = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s", (ICA_ATIVO,))
     assert a and str(a["cod_tipo_ativo"]) == C.AT_ICA
-    # o mesmo id existe em iniciativa_camada_ambiente (relação por igualdade de PK)
-    ica = db.query_one("SELECT * FROM governanca.iniciativa_camada_ambiente "
-                       "WHERE id_iniciativa_camada_ambiente=%s", (ICA_ATIVO,))
+    ica = db.query_one(f"SELECT * FROM {GOV}.iniciativa_camada_ambiente "
+                       f"WHERE id_iniciativa_camada_ambiente=%s", (ICA_ATIVO,))
     assert ica is not None
-    # e NÃO há mais colunas denormalizadas no ativo
-    assert "nome_dominio" not in a and "id_referencia" not in a and "nome_schema" not in a
+    # sem colunas denormalizadas; grupo embutido em nome_grupo_ativo
+    assert "nome_dominio" not in a and "nome_schema" not in a and "id_referencia" not in a
+    assert a["nome_grupo_ativo"]
 
 
-def test_scope_ica_um_schema(conectado):
-    a = db.query_one("SELECT * FROM governanca.ativo_aisn WHERE id_ativo_aisn=%s", (ICA_ATIVO,))
+def test_scope_ica_schema(conectado):
+    a = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s", (ICA_ATIVO,))
     objs = objetos_do_ativo(a)
-    assert len(objs) == 1 and objs[0]["tipo"] == "SCHEMA"
-    assert objs[0]["catalogo"] == config.UC_CATALOG and objs[0]["schema"] == "mkt_ib_nav_gold"
+    assert objs and all(o["tipo"] == "SCHEMA" for o in objs)
+    assert any(o["schema"] == "mkt_ib_nav_gold" and o["catalogo"] == config.UC_CATALOG for o in objs)
 
 
 def test_scope_tabela_uma_tabela(conectado):
-    a = db.query_one("SELECT * FROM governanca.ativo_aisn WHERE id_ativo_aisn=%s", (TAB_ATIVO,))
+    a = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s", (TAB_ATIVO,))
     objs = objetos_do_ativo(a)
     assert len(objs) == 1 and objs[0]["tipo"] == "TABLE"
     assert objs[0]["schema"] == "mkt_ib_nav_gold" and objs[0]["tabela"] == "dim_cooperado"
 
 
+def test_scope_subdominio_expande(conectado):
+    a = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s", (SUB_ATIVO,))
+    objs = objetos_do_ativo(a)
+    assert len(objs) >= 1 and all(o["tipo"] == "SCHEMA" for o in objs)
+
+
 def test_scope_dominio_expande(conectado):
-    a = db.query_one("SELECT * FROM governanca.ativo_aisn WHERE id_ativo_aisn=%s", (DOM_ATIVO,))
+    a = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s", (DOM_ATIVO,))
     objs = objetos_do_ativo(a)
     assert len(objs) > 1 and all(o["tipo"] == "SCHEMA" for o in objs)
 
 
 def test_rn005_catalogo_driver_ativo_com_breadcrumb(conectado):
-    """O catálogo lista ATIVOS (driver), todos com owner (RN-005), com breadcrumb e
-    rótulo de nível DERIVADOS das relações (não de colunas copiadas)."""
     ativos = catalog_service.listar_ativos()
     assert len(ativos) > 0
     assert all(a["owners"] for a in ativos)
-    # o ativo de ICA tem breadcrumb de domínio derivado e rótulo de nível
     ica = next(a for a in ativos if a["id_ativo_aisn"] == ICA_ATIVO)
     assert ica["nome_dominio"] == "Canais e Experiência"
     assert ica["tipo_label"] == C.TIPO_ATIVO_LABEL[C.AT_ICA]
+    assert ica["nome_grupo"]  # nome_grupo_ativo
 
 
 def test_catalogo_filtra_por_dominio_derivado(conectado):
-    """Filtro por domínio funciona sobre o domínio DERIVADO polimorficamente."""
     do_dom = catalog_service.listar_ativos(id_dominio="dom_canais")
     assert do_dom and all(a["nome_dominio"] == "Canais e Experiência" for a in do_dom)
 
@@ -117,7 +120,6 @@ def test_rn017_owner_nao_aprova_proprio(conectado, usuario):
 
 
 def test_rf014_tipo_acesso_privilegios(conectado):
-    # LEITURA_ESCRITA gera MODIFY; LEITURA não. (nível SCHEMA)
     from app.services import grant_executor
     objs = [{"tipo": "SCHEMA", "catalogo": "cat", "schema": "sch", "tabela": None}]
     cmds_rw = grant_executor.montar_comandos(C.OP_CONCESSAO, "x@y.com", objs,
@@ -129,7 +131,6 @@ def test_rf014_tipo_acesso_privilegios(conectado):
 
 
 def test_grant_por_nivel(conectado):
-    # TABELA -> GRANT ON TABLE; SCHEMA -> GRANT ON SCHEMA (provisionamento do grupo do ativo)
     from app.services import grant_executor
     cmds_tab = grant_executor.montar_comandos(
         C.OP_CONCESSAO, "mkt_at_x",

@@ -1,13 +1,14 @@
-"""Trilha de auditoria / histórico do ciclo de vida (RN-027, RF-056, RF-081..088)."""
+"""Trilha de auditoria / histórico do ciclo de vida (RN-027, RF-056, RF-081..088).
+Eventos no workflow ({APP}); breadcrumb/ativo em {ACC}/{GOV}."""
 import uuid
 from app import db
+from app.schemas import GOV, ACC, APP
 from app.services import ativo_scope
 
 
 def registrar(cur, cod_evento, id_solicitacao=None, id_acesso=None, id_usuario=None, detalhe=None):
-    """Registra um evento usando um cursor de transação já aberto."""
     cur.execute(
-        """INSERT INTO gestao_acesso.evento_ciclo_vida
+        f"""INSERT INTO {APP}.evento_ciclo_vida
            (id_evento_ciclo_vida, id_solicitacao_acesso, id_acesso, cod_evento,
             desc_detalhe, id_usuario_evento)
            VALUES (%s,%s,%s,%s,%s,%s)""",
@@ -16,16 +17,14 @@ def registrar(cur, cod_evento, id_solicitacao=None, id_acesso=None, id_usuario=N
 
 
 def eventos_da_solicitacao(id_solicitacao):
-    # Eventos ligados diretamente à solicitação OU ao acesso dela: os eventos de
-    # ciclo de vida do acesso (efetivação, revogação solicitada, revogado, erro)
-    # são gravados com id_acesso, então precisam ser resgatados pela ligação
-    # acesso→solicitação para aparecerem no histórico (RF-081..088).
+    # Eventos ligados à solicitação OU ao acesso dela (efetivação/revogação são gravadas
+    # com id_acesso) — resgatados pela ligação acesso->solicitação (RF-081..088).
     return db.query(
-        """SELECT e.*, u.nome_completo AS nome_usuario_evento
-             FROM gestao_acesso.evento_ciclo_vida e
-             LEFT JOIN governanca.usuario_aisn u ON u.id_usuario_aisn=e.id_usuario_evento
+        f"""SELECT e.*, u.nome_completo AS nome_usuario_evento
+             FROM {APP}.evento_ciclo_vida e
+             LEFT JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=e.id_usuario_evento
             WHERE e.id_solicitacao_acesso=%s
-               OR e.id_acesso IN (SELECT id_acesso FROM gestao_acesso.acesso
+               OR e.id_acesso IN (SELECT id_acesso FROM {APP}.acesso
                                    WHERE id_solicitacao_acesso=%s)
             ORDER BY e.datahora_evento""",
         (id_solicitacao, id_solicitacao),
@@ -33,23 +32,22 @@ def eventos_da_solicitacao(id_solicitacao):
 
 
 def resumo_dominio():
-    """Visão agregada por domínio (RF-089-ish / apoio gerencial).
-    O domínio de cada ativo é derivado polimorficamente (ativo_scope), não copiado."""
+    """Visão agregada por domínio. O domínio de cada ativo é derivado polimorficamente."""
     dom_expr = ativo_scope.dominio_id_expr()
     join = ativo_scope.ativo_join("a")
     return db.query(
         f"""SELECT d.id_dominio_informacao, d.nome_dominio,
-                  (SELECT count(*) FROM governanca.ativo_aisn a {join}
+                  (SELECT count(*) FROM {ACC}.ativo_aisn a {join}
                     WHERE a.bol_atual=true AND {dom_expr}=d.id_dominio_informacao) AS num_ativos,
-                  (SELECT count(*) FROM gestao_acesso.acesso ac
-                     JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=ac.id_ativo_aisn {join}
+                  (SELECT count(*) FROM {APP}.acesso ac
+                     JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=ac.id_ativo_aisn {join}
                     WHERE {dom_expr}=d.id_dominio_informacao
                       AND ac.cod_status_acesso='EFETIVADO') AS acessos_ativos,
-                  (SELECT count(*) FROM gestao_acesso.solicitacao_acesso so
-                     JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=so.id_ativo_aisn {join}
+                  (SELECT count(*) FROM {APP}.solicitacao_acesso so
+                     JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=so.id_ativo_aisn {join}
                     WHERE {dom_expr}=d.id_dominio_informacao
                       AND so.cod_status_solicitacao IN ('PENDENTE_AUTORIZACAO','AUTORIZADA')) AS solicitacoes_abertas
-             FROM governanca.dominio_informacao d
+             FROM {GOV}.dominio_informacao d
             WHERE d.bol_atual=true
             ORDER BY d.nome_dominio""")
 
@@ -64,15 +62,15 @@ def auditoria_do_owner(id_owner):
                   ubenef.nome_completo AS beneficiario_nominal,
                   g.nome_grupo AS beneficiario_grupo,
                   ac.id_acesso, ac.cod_status_acesso, ac.datahora_efetivacao
-             FROM gestao_acesso.solicitacao_acesso s
-             JOIN governanca.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+             FROM {APP}.solicitacao_acesso s
+             JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
              {ativo_scope.ativo_join("a")}
-             JOIN governanca.ativo_proprietario p
+             JOIN {ACC}.ativo_proprietario p
                   ON p.id_ativo_aisn=s.id_ativo_aisn AND p.bol_atual=true
-             JOIN governanca.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
-             LEFT JOIN governanca.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
-             LEFT JOIN governanca.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
-             LEFT JOIN gestao_acesso.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
+             JOIN {GOV}.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
+             LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
+             LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
+             LEFT JOIN {APP}.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
             WHERE p.id_usuario_aisn=%s
             ORDER BY s.datahora_criacao DESC""",
         (id_owner,),

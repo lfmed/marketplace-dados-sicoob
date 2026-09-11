@@ -8,6 +8,7 @@ from flask import request, session
 
 from app.config import config
 from app import db
+from app.schemas import GOV
 
 
 def _email_do_sso():
@@ -19,7 +20,7 @@ def usuario_por_email(email):
     if not email:
         return None
     return db.query_one(
-        "SELECT * FROM governanca.usuario_aisn WHERE lower(desc_email)=lower(%s) AND bol_atual=true",
+        f"SELECT * FROM {GOV}.usuario_aisn WHERE lower(desc_email)=lower(%s) AND bol_atual=true",
         (email,),
     )
 
@@ -28,15 +29,15 @@ def usuario_por_id(uid):
     if not uid:
         return None
     return db.query_one(
-        "SELECT * FROM governanca.usuario_aisn WHERE id_usuario_aisn=%s", (uid,)
+        f"SELECT * FROM {GOV}.usuario_aisn WHERE id_usuario_aisn=%s", (uid,)
     )
 
 
 def listar_personas():
     """Personas disponíveis para o seletor de proxy (dev)."""
     return db.query(
-        "SELECT id_usuario_aisn, nome_completo, desc_email FROM governanca.usuario_aisn "
-        "WHERE bol_atual=true ORDER BY nome_completo"
+        f"SELECT id_usuario_aisn, nome_completo, desc_email FROM {GOV}.usuario_aisn "
+        f"WHERE bol_atual=true ORDER BY nome_completo"
     )
 
 

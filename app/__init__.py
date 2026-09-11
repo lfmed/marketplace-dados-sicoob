@@ -50,17 +50,19 @@ def create_app():
 
 def _e_gestor(uid):
     from app import db
+    from app.schemas import ACC
     return db.query_one(
-        "SELECT 1 AS ok FROM governanca.hierarquia_usuario WHERE id_gestor_aisn=%s AND bol_atual=true LIMIT 1",
+        f"SELECT 1 AS ok FROM {ACC}.hierarquia_usuario WHERE id_gestor_aisn=%s AND bol_atual=true LIMIT 1",
         (uid,)) is not None
 
 
 def _e_owner(uid):
-    # Owner no modelo ativo-cêntrico = proprietário de algum ATIVO (ativo_proprietario),
-    # consistente com aprovação/acessos/auditoria (que checam ativo_proprietario).
+    # Owner = proprietário de algum ATIVO (ativo_proprietario, em {ACC}), consistente com
+    # aprovação/acessos/auditoria.
     from app import db
+    from app.schemas import ACC
     return db.query_one(
-        "SELECT 1 AS ok FROM governanca.ativo_proprietario WHERE id_usuario_aisn=%s AND bol_atual=true LIMIT 1",
+        f"SELECT 1 AS ok FROM {ACC}.ativo_proprietario WHERE id_usuario_aisn=%s AND bol_atual=true LIMIT 1",
         (uid,)) is not None
 
 
