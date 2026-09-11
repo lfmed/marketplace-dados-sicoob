@@ -3,6 +3,56 @@
 Guia para provisionar o banco e publicar o app em **qualquer workspace** (dev ou cliente).
 Todo o código de banco é reproduzível e parametrizado (ver `app/config.py`).
 
+## ⚡ Deploy SEM a CLI databricks (recomendado no cliente — repo já clonado)
+
+Quando o cliente **não consegue usar a CLI `databricks`** (ex.: firewall bloqueia o
+`databricks` local), **não precisa dela**. Como o **repositório já está clonado no
+Databricks** (Repos/Git folder) e o app roda **dentro** da workspace, todo o
+provisionamento acontece server-side. Passos, tudo pela **UI**:
+
+1. **Repo clonado** em *Workspace ▸ Repos* (Git folder) — já feito.
+2. **Criar o App** em *Compute ▸ Apps ▸ Create app*, apontando o **source code path** para
+   a pasta do repo clonado. Configure as env vars do cliente (ver §2 e `app.yaml`:
+   `GOV_CATALOG=plataforma`, `SCHEMA_*`, `GROUPS_SCOPE=account`, `PROVISION_GROUP_GRANT=false`,
+   `DATABRICKS_ACCOUNT_ID`). Comando de runtime já vem no `app.yaml`.
+3. **Deploy pela UI.** Na subida, a **própria app provisiona o schema de workflow**
+   (`marketplace_app`) direto no Lakebase (pelo service principal, sem CLI) e **loga em
+   detalhe** cada ponto — veja em *App ▸ Logs* (ou `databricks apps logs`, se disponível):
+   ```
+   [bootstrap ...] » PROVISIONAMENTO NA SUBIDA DO APP — Marketplace de Dados
+   [bootstrap ...] ✓ conexão OK — usuário=<sp> database=databricks_postgres
+   [bootstrap ...] » [2/3] provisionando schema de workflow 'marketplace_app' …
+   [bootstrap ...]   tabela marketplace_app.solicitacao_acesso — ＋ CRIADA
+   [bootstrap ...] ✓ schema 'marketplace_app' pronto: 7 tabelas
+   [bootstrap ...] » [3/3] verificando schemas espelho do Motor (só-leitura) …
+   [bootstrap ...] ✓   gestao_acesso.ativo_aisn: 74 linhas
+   [bootstrap ...] ✓ PROVISIONAMENTO OK — app pronto para atender.
+   ```
+   Isso é controlado por `AUTO_BOOTSTRAP_APP_SCHEMA` (default `true`). É idempotente e
+   serializado entre workers (advisory lock) — pode reiniciar à vontade.
+
+> **O que a app cria vs. o que já tem que existir:** a app só cria o **seu** schema de
+> workflow (`marketplace_app`). Os schemas de **leitura** `governanca` e `gestao_acesso`
+> são **synced tables do Motor** do cliente — devem existir **antes** (o log `[3/3]` acima
+> confirma que a app as enxerga; se aparecer `✗ ... VAZIO/ausente`, o time do Motor precisa
+> registrá-las — ver §3).
+
+**Alternativas sem CLI** para criar o `marketplace_app` (caso prefira não usar o boot):
+- **Notebook no repo clonado** (server-side): abra um notebook na pasta do repo e rode
+  ```python
+  %pip install -r requirements.txt
+  import os
+  os.environ["AUTO_BOOTSTRAP_APP_SCHEMA"] = "false"
+  os.environ["APP_DISABLE_WORKER"] = "true"
+  from app.bootstrap import run
+  run()
+  ```
+- **Editor SQL do Lakebase**: cole o arquivo pronto `db/ddl/marketplace_app.sql`
+  (gerado por `scripts/gen_app_sql.py` a partir do `03_app.sql`) e execute.
+
+O restante deste guia detalha os recursos de infra (§0), parâmetros (§2) e a rota **com**
+CLI (§3, §5) para quem a tiver.
+
 ## 0. O que o CLIENTE provisiona (checklist de infra)
 
 O código (app Flask + banco) é entregue pronto, idempotente e parametrizado. Do lado do
@@ -30,7 +80,8 @@ cliente é preciso ter os recursos abaixo **antes** de publicar:
 **efetiva o acesso no Unity Catalog** (grant no schema real) via o SP do app.
 
 ## 1. Pré-requisitos
-- Databricks CLI autenticado na workspace-alvo (`databricks auth login`).
+- Databricks CLI autenticado na workspace-alvo (`databricks auth login`) — **opcional**:
+  se o cliente não puder usar a CLI (firewall), use a rota **sem CLI** acima (⚡).
 - Python 3.11+, `pip install -r requirements.txt`.
 - SQL Warehouse (serverless) ativo.
 - Projeto Lakebase (autoscaling). Criar, se necessário:
@@ -53,6 +104,7 @@ Defina via env ou `app.yaml` (nenhum valor é hardcoded fora de `app/config.py`)
 | `LAKEBASE_ENDPOINT` | endpoint do Lakebase | `projects/marketplace-dados/branches/production/endpoints/primary` |
 | `LAKEBASE_DBNAME` | database Postgres | `databricks_postgres` |
 | `GRANT_EXECUTE_REAL` | executar GRANT/REVOKE reais | `true` |
+| `AUTO_BOOTSTRAP_APP_SCHEMA` | app cria o schema `marketplace_app` no boot (deploy sem CLI) | `true` |
 | `APP_ENABLE_PROXY` | seletor "atuar como" (demo) | `true` (prod: `false`) |
 | `GROUPS_SCOPE` | escopo dos grupos: `account` (produção) ou `workspace` (dev) | `workspace` (prod: `account`) |
 | `DATABRICKS_ACCOUNT_ID` | id da conta (só quando `GROUPS_SCOPE=account`) | — |
@@ -69,6 +121,11 @@ Defina via env ou `app.yaml` (nenhum valor é hardcoded fora de `app/config.py`)
 > objetos **não propaga** (grupo workspace-local não é principal do UC — limitação D-009).
 
 ## 3. Provisionar o banco (reproduzível)
+
+> **Sem CLI?** O schema de workflow (`marketplace_app`) é criado **automaticamente na
+> subida do app** (§⚡ acima, `AUTO_BOOTSTRAP_APP_SCHEMA=true`) — esta seção é para quem
+> tem CLI ou quer rodar o provisionamento completo (incl. synced tables) explicitamente.
+
 Um único entrypoint recria tudo (idempotente):
 
 ```bash
@@ -121,6 +178,12 @@ GRANT USE SCHEMA, MANAGE ON SCHEMA <UC_CATALOG>.<cada schema mkt_*> TO `<app-sp-
   ```
 
 ## 5. Publicar o app (Databricks Apps)
+
+**Sem CLI (repo já clonado) — recomendado no cliente:** *Compute ▸ Apps ▸ Create app*,
+aponte o **source code path** para a pasta do repo em *Repos*, configure as env vars (§2)
+e faça **Deploy** pela UI. Na subida a app provisiona o `marketplace_app` e loga tudo (§⚡).
+
+**Com CLI:**
 ```bash
 databricks apps create marketplace-dados
 databricks sync --watch . /Workspace/Users/<voce>/marketplace-dados   # ou databricks bundle

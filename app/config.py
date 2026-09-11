@@ -74,6 +74,12 @@ class Config:
     # SLA de efetivação (RN-030): 30 minutos
     EFETIVACAO_SLA_MIN = int(os.getenv("EFETIVACAO_SLA_MIN", "30"))
 
+    # --- Provisionamento na subida (deploy sem CLI) ---
+    # true = ao subir, a app cria o schema de workflow ({APP} marketplace_app) direto no
+    # Lakebase (server-side, pelo SP) e loga em detalhe o que provisiona/verifica. Assim o
+    # deploy não depende da CLI databricks (útil quando o cliente tem firewall). Idempotente.
+    AUTO_BOOTSTRAP = _b(os.getenv("AUTO_BOOTSTRAP_APP_SCHEMA"), True)
+
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-marketplace-sicoob-troque-em-prod")
 
     @classmethod

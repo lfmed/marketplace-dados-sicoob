@@ -19,6 +19,10 @@ env:
   # Efetivação real de acessos (GRANT/REVOKE reais no UC).
   - name: GRANT_EXECUTE_REAL
     value: "true"
+  # Deploy SEM CLI: a app cria o schema de workflow (marketplace_app) no Lakebase na subida
+  # e loga cada ponto provisionado/verificado (ver App ▸ Logs). Idempotente. Default true.
+  - name: AUTO_BOOTSTRAP_APP_SCHEMA
+    value: "true"
   # Escopo dos grupos da concessão por associação. Dev sem conta: "workspace".
   # PRODUÇÃO/cliente: "account" (grupos de conta = principais do UC) + DATABRICKS_ACCOUNT_ID,
   # e o SP do app precisa de direito de GERENTE desses grupos de conta (ou admin de conta).

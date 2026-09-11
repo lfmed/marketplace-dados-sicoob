@@ -416,9 +416,13 @@ pip install -r requirements.txt
       <div class="section-head">
         <span class="section-num">1</span>
         <div><h2>Pré-requisitos</h2>
-        <p class="sub">CLI autenticado e o projeto Lakebase disponível.</p></div>
+        <p class="sub">Projeto Lakebase disponível · CLI <em>opcional</em> (firewall? use a rota sem CLI).</p></div>
       </div>
-      <p class="narrow">Duas coisas precisam existir antes de qualquer outra: o <strong>Databricks CLI autenticado</strong> na workspace de produção e um <strong>projeto Lakebase</strong>. O CLI é a ferramenta que provisiona o banco, concede as permissões e publica o app; a autenticação usa OAuth e fica salva no perfil local. O projeto Lakebase é o banco Postgres <em>autoscaling</em> do app — ele escala a compute conforme a carga e pode chegar a zero quando ocioso, então não há custo de servidor parado.</p>
+      <div class="callout">
+        <span class="ico">sem CLI</span>
+        <p class="ct"><b>Firewall bloqueia a CLI <code>databricks</code>? Não precisa dela.</b> Com o <b>repositório já clonado no Databricks</b> (Git folders, passo anterior), crie e publique o app pela <b>UI de Apps</b> apontando para a pasta do repo (passo 5). Na subida, a <b>própria app cria o schema <code>marketplace_app</code></b> no Lakebase (agindo como o service principal, server-side) e <b>loga cada ponto provisionado</b> em <em>App ▸ Logs</em>. Os comandos de CLI abaixo são só uma <b>alternativa</b> para quem a tiver. As <em>synced tables</em> dos mirrors (governança/acesso) continuam sendo responsabilidade do Motor do cliente.</p>
+      </div>
+      <p class="narrow">O único recurso que precisa existir antes de tudo é o <strong>projeto Lakebase</strong> — o banco Postgres <em>autoscaling</em> do app, que escala a compute conforme a carga e chega a zero quando ocioso (sem custo de servidor parado). Se você tiver o <strong>Databricks CLI</strong> (rota alternativa), ele autentica por OAuth e provisiona/publica pela linha de comando; caso contrário, tudo é feito pela UI e pelo boot do app. O <strong>SQL Warehouse serverless</strong> (item 2 do checklist) precisa estar ativo — executa os <code>GRANT</code>/<code>REVOKE</code> e, se usar synced tables nativas, o registro delas.</p>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
 <pre><code><span class="c"># 1. Autentica o CLI na workspace de produção do cliente (abre o browser p/ OAuth)</span>
@@ -501,6 +505,10 @@ env:
         <p class="sub">Um único entrypoint idempotente provisiona tudo.</p></div>
       </div>
       <p class="narrow">O banco do app tem <strong>3 schemas</strong> no Lakebase. <code>governanca</code> e <code>gestao_acesso</code> são <strong>mirrors de leitura</strong> — populados por synced tables a partir do Delta do Motor (<code>plataforma.*</code>); o app nunca escreve neles. <code>marketplace_app</code> é o schema <strong>transacional do app</strong> — solicitações, autorizações, aprovações, acessos, execuções técnicas e trilha de auditoria. Como a governança já existe, em produção o comando <b>não semeia nada</b>: só cria o <code>marketplace_app</code> e registra as synced tables.</p>
+      <div class="callout">
+        <span class="ico">sem CLI · no boot</span>
+        <p class="ct"><b>Deploy sem CLI: o schema <code>marketplace_app</code> é criado pela própria app na subida.</b> Controlado por <code>AUTO_BOOTSTRAP_APP_SCHEMA</code> (default <code>true</code>), o app conecta no Lakebase pelo service principal, aplica o DDL (idempotente, com <em>advisory lock</em> entre workers) e <b>loga cada tabela criada e cada mirror verificado</b> em <em>App ▸ Logs</em> — ex.: <code>✓ schema 'marketplace_app' pronto: 7 tabelas</code>, <code>✓ gestao_acesso.ativo_aisn: 74 linhas</code>. Alternativas sem CLI: rodar <code>from app.bootstrap import run; run()</code> num notebook do repo clonado, ou colar <code>db/ddl/marketplace_app.sql</code> no editor SQL do Lakebase. O <code>db.setup</code> abaixo é para quem tem CLI ou quer registrar as synced tables no mesmo passo.</p>
+      </div>
       <div class="code">
         <div class="code-bar"><span class="dot"></span><span class="lang">bash</span></div>
 <pre><code><span class="c"># PRODUÇÃO — cria marketplace_app + registra synced tables dos mirrors, SEM seed</span>

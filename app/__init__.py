@@ -39,6 +39,15 @@ def create_app():
                     STATUS_AC=C.STATUS_ACESSO_LABEL,
                     personas=(identity.listar_personas() if config.ENABLE_PROXY else []))
 
+    # Provisionamento na subida (deploy sem CLI): cria o schema de workflow no Lakebase e
+    # loga em detalhe cada ponto provisionado/verificado. Idempotente; nunca derruba a app.
+    if config.AUTO_BOOTSTRAP:
+        try:
+            from app import bootstrap
+            bootstrap.run()
+        except Exception as e:  # bootstrap é best-effort — a app sobe mesmo assim
+            print(f"[bootstrap] erro inesperado (app segue): {str(e)[:300]}", flush=True)
+
     # Worker de efetivação (desligável em testes via APP_DISABLE_WORKER=true)
     import os
     if os.getenv("APP_DISABLE_WORKER", "false").lower() not in ("1", "true", "yes"):

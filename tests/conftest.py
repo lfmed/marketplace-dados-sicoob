@@ -7,6 +7,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
 os.environ.setdefault("APP_DISABLE_WORKER", "true")
+# Testes já provisionam via `db.setup --mode dev`; não rodar o bootstrap na importação da app.
+os.environ.setdefault("AUTO_BOOTSTRAP_APP_SCHEMA", "false")
 
 import pytest  # noqa: E402
 from app import db  # noqa: E402

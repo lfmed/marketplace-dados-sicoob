@@ -86,6 +86,13 @@ No cliente, `governanca` e `gestao_acesso` (com **ativos, grupos e proprietário
 mantidos pelo Motor** em Delta (`plataforma.*`) — o app **não os cria nem semeia**. O app só
 cria o próprio schema de workflow (`marketplace_app`) e consome o resto.
 
+> **⚡ Sem a CLI `databricks` (firewall)?** Não precisa dela. Com o repo **já clonado** no
+> Databricks (Git folders), crie/publique o app pela **UI de Apps** apontando para a pasta
+> do repo (passo 6). Na subida, a **própria app cria o `marketplace_app`** no Lakebase (pelo
+> SP, server-side) e **loga cada ponto provisionado/verificado** em *App ▸ Logs*
+> (`AUTO_BOOTSTRAP_APP_SCHEMA=true`, default). Os comandos de CLI (passos 2, 4 e 6) viram
+> alternativas. Detalhes: `docs/DEPLOY.md` §⚡.
+
 ### 0. O que o cliente provisiona (o resto já existe)
 - **Projeto Lakebase** (autoscaling, PG 17) para o app.
 - **SQL Warehouse serverless** ativo (para registrar as synced tables / DDL).
@@ -125,6 +132,13 @@ APP_ENABLE_PROXY      false             # identidade só por SSO (X-Forwarded-Em
 ```
 
 ### 4. Provisionar o banco (sem seed — governança já existe)
+
+**Sem CLI:** pule este passo — o `marketplace_app` é criado pela app na subida (§⚡). As
+*synced tables* dos mirrors são registradas pelo Motor do cliente (ou por um admin com
+`CREATE CATALOG`). Alternativas sem CLI: `from app.bootstrap import run; run()` num notebook
+do repo, ou colar `db/ddl/marketplace_app.sql` no editor SQL do Lakebase.
+
+**Com CLI** (cria o `marketplace_app` **e** registra as synced tables num passo só):
 ```bash
 python -m db.setup --mode native --no-seed
 ```
@@ -144,6 +158,12 @@ leitura). **Não** cria nem semeia a governança (já existe, mantida pelo Motor
 Comandos explícitos em `docs/DEPLOY.md` §4.
 
 ### 6. Publicar no Databricks Apps
+
+**Sem CLI (recomendado no cliente):** *Compute ▸ Apps ▸ Create app*, aponte o **source code
+path** para a pasta do repo em *Repos*, configure as env vars (passo 3) e faça **Deploy**
+pela UI. Na subida a app provisiona o `marketplace_app` e loga tudo (§⚡).
+
+**Com CLI:**
 ```bash
 databricks apps create marketplace-dados
 databricks sync . /Workspace/Users/<voce>/marketplace-dados   # pule se usou Git folders
