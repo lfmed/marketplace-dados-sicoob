@@ -26,6 +26,19 @@ env:
     value: "workspace"
   # - name: DATABRICKS_ACCOUNT_ID
   #   value: "<account-id-do-cliente>"
+  # Modelo oficial do cliente — catálogo/schemas parametrizáveis (dev usa os defaults).
+  # No cliente: GOV_CATALOG=plataforma; schemas governanca/gestao_acesso/marketplace_app;
+  # PROVISION_GROUP_GRANT=false (o Motor já concede o grant do grupo — app só faz membership).
+  # - name: GOV_CATALOG
+  #   value: "plataforma"
+  # - name: SCHEMA_GOVERNANCA
+  #   value: "governanca"
+  # - name: SCHEMA_GESTAO
+  #   value: "gestao_acesso"
+  # - name: SCHEMA_APP
+  #   value: "marketplace_app"
+  # - name: PROVISION_GROUP_GRANT
+  #   value: "false"
   # Proxy "atuar como" (demo). Em produção com SSO real, defina "false".
   - name: APP_ENABLE_PROXY
     value: "true"

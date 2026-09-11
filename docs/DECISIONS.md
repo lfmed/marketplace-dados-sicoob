@@ -156,6 +156,26 @@ provisiona o `GRANT` do grupo nos objetos (`grant_executor.provisionar_ativo`).
 Validado (2026-09-10): 15 testes de regra/modelo + 2 e2e (associação real ICA e TABELA); e
 `scripts/verify_deployed_worker.py` confirma o worker publicado (SP) efetivando. *(Confirmado.)*
 
+## D-015 — Alinhamento ao modelo OFICIAL do cliente (catálogo/schema parametrizáveis) — 2026-09-11
+O cliente entregou as tabelas finais e populadas (catálogo `plataforma`, schemas
+`governanca` + `gestao_acesso`). O app foi alinhado, com **catálogo e schema totalmente
+parametrizáveis** (`app/schemas.py` ← config: `GOV`/`ACC`/`APP`; `GOV_CATALOG`, `SCHEMA_APP`),
+para rodar no dev (catálogo fixo do leandro — não é possível criar `plataforma` aqui) e no
+cliente só mudando env. Mudanças-chave:
+- **3 schemas:** `governanca` (taxonomia + novas `subdominio_camada_ambiente`/`dominio_camada_ambiente`
+  + `tag/sigla` + `nome/desc` na ICA, que **perdeu** nome_catalogo/schema), `gestao_acesso`
+  (referência do Motor de Acesso: hierarquia, grupo_acesso **sem tipo_grupo**, grupo_acesso_membro,
+  **ativo_aisn** com `nome_grupo_ativo`, ativo_proprietario), e `marketplace_app` (workflow do app).
+- **`ativo_aisn` migrou** de governanca→gestao_acesso; `cod_tipo_ativo` numérico (1=ICA,2=TABELA,
+  3=SUBDOMINIO,4=DOMINIO); `id_ativo_aisn` = PK da combinação de origem.
+- **Escopo UC resolvido só via `tabela_aisn`** (D-013 atualizada): a ICA não tem schema próprio.
+- **Concessão só membership em produção** (estende D-014): `PROVISION_GROUP_GRANT=false` no
+  cliente (o Motor concede o grant do grupo); dev provisiona best-effort.
+- Typos do DDL oficial do cliente sinalizados/corrigidos no nosso modelo: `BOLEAR`→BOOLEAN e a
+  vírgula antes do COMMENT em `nome_iniciativa_camada_ambiente`.
+Validado em dev (74 ativos; 16 testes de regra + 2 e2e); deploy pg4xe1 (v1.005). *(Confirmado
+pelo usuário — tabelas oficiais + 3 decisões: schema próprio do app, só-membership, cod numérico.)*
+
 ## Infra provisionada (dev) — 2026-09-03
 - **Lakebase (autoscaling):** project `projects/marketplace-dados`, branch `production`,
   endpoint `.../endpoints/primary` (host `ep-lucky-dawn-d2x5bhqt.database.us-east-1.cloud.databricks.com`),
