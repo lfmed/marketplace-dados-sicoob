@@ -24,6 +24,22 @@ from db.seed.gov_schema import GOV_TABLES, DELTA_SCHEMAS  # noqa: E402
 LAKEBASE_UC_CATALOG = os.getenv("LAKEBASE_UC_CATALOG", "lakebase_marketplace")
 CKPT_SCHEMA = os.getenv("SYNC_CKPT_SCHEMA", "marketplace_sync_ckpt")
 SCHED = os.getenv("SYNC_SCHEDULING_POLICY", "SNAPSHOT")  # SNAPSHOT|TRIGGERED|CONTINUOUS
+VALID_POLICIES = {"SNAPSHOT", "TRIGGERED", "CONTINUOUS"}
+
+
+def _validar_overrides(pk_overrides, policy_overrides):
+    """Falha cedo com mensagem clara: policy fora do enum; avisa chave de override que não
+    bate com nenhuma tabela do modelo (senão o override é ignorado em silêncio)."""
+    nomes = {t[1] for t in GOV_TABLES}
+    for rotulo, d in (("pk_overrides", pk_overrides), ("policy_overrides", policy_overrides)):
+        for k in d:
+            if k not in nomes:
+                print(f"  ⚠ {rotulo}: tabela '{k}' não existe no modelo — override IGNORADO")
+    invalidas = {p for p in list(policy_overrides.values()) + [SCHED] if p not in VALID_POLICIES}
+    if invalidas:
+        raise ValueError(
+            f"scheduling_policy inválida: {sorted(invalidas)}. Use um de {sorted(VALID_POLICIES)} "
+            "(TRIGGERED/CONTINUOUS exigem CDF na origem).")
 
 
 def _api(method, path, body=None):
@@ -84,6 +100,7 @@ def create_synced_tables(pk_overrides=None, recreate=False, policy_overrides=Non
     # se False (padrão), pula as que já existem.
     pk_overrides = pk_overrides or {}
     policy_overrides = policy_overrides or {}
+    _validar_overrides(pk_overrides, policy_overrides)
     cat = config.GOV_CATALOG
     # schema de checkpoints do pipeline
     run_sql(f"CREATE SCHEMA IF NOT EXISTS {cat}.{CKPT_SCHEMA}")
@@ -127,7 +144,9 @@ def main(pk_overrides=None, recreate=False, policy_overrides=None):
     print(f"  LAKEBASE_UC_CATALOG = {LAKEBASE_UC_CATALOG!r}")
     print(f"  GOV_CATALOG (Delta) = {config.GOV_CATALOG!r}")
     print(f"  WAREHOUSE_ID        = {config.WAREHOUSE_ID!r}")
-    print(f"  scheduling_policy   = {SCHED!r}")
+    print(f"  scheduling_policy   = {SCHED!r} (global)")
+    if policy_overrides:
+        print(f"  policy overrides    = {policy_overrides}")
     print("== Registrando banco Lakebase no UC ==")
     register_catalog()
     print(f"== Criando synced tables ({', '.join(DELTA_SCHEMAS)}) — recreate={recreate} ==")

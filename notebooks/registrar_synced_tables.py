@@ -123,6 +123,9 @@ print(f"{len(PRIMARY_KEYS)} tabelas com PK definida")
 # MAGIC Deixe **vazio** para todas usarem a política global (`SYNC_SCHEDULING_POLICY`).
 # MAGIC Preencha só as exceções. Valores: **`SNAPSHOT`** (sem CDF) · **`TRIGGERED`**/**`CONTINUOUS`**
 # MAGIC (exigem **CDF** habilitado na tabela Delta de origem: `delta.enableChangeDataFeed=true`).
+# MAGIC
+# MAGIC ⚠️ Mudar a política (ou a PK) de uma tabela **já criada** só tem efeito com
+# MAGIC **`RECREATE = True`** (seção 1) — senão a synced table existente é pulada.
 
 # COMMAND ----------
 
@@ -163,6 +166,10 @@ print("\nMirrors OK ✓" if ok else "\nAlgo faltou — veja os ✗ acima")
 
 # MAGIC %md
 # MAGIC ## 5. (Opcional) Atualização recorrente
-# MAGIC Se usar `SNAPSHOT`/`TRIGGERED`, agende este notebook como um **Job** (Databricks
-# MAGIC Workflows) na cadência desejada, ou troque `SYNC_SCHEDULING_POLICY=CONTINUOUS` para
-# MAGIC sync contínuo. Reexecutar é seguro (idempotente).
+# MAGIC **Reexecutar este notebook NÃO atualiza os dados** — ele é idempotente e **pula** as
+# MAGIC synced tables já existentes (só cria as que faltam, ou recria se `RECREATE=True`).
+# MAGIC O refresh dos dados é da **própria synced table / pipeline**, conforme a política:
+# MAGIC - **`CONTINUOUS`**: atualiza sozinha (streaming).
+# MAGIC - **`TRIGGERED`**: dispare o refresh da pipeline (UI da synced table / API) ou agende
+# MAGIC   **a pipeline** (não este notebook) na cadência desejada.
+# MAGIC - **`SNAPSHOT`**: recarga completa a cada disparo da pipeline.
