@@ -62,7 +62,7 @@ GOV_TABLES = [
     (ACC, "hierarquia_usuario",
      ["id_usuario_aisn", "id_gestor_aisn"] + SCD2, ["id_usuario_aisn", "id_gestor_aisn"]),
     (ACC, "grupo_acesso",
-     ["id_grupo_acesso", "id_externo_grupo", "cod_conta_databricks", "nome_grupo"] + SCD2,
+     ["id_grupo_acesso", "id_externo_grupo", "cod_conta_databricks", "nome_grupo", "tipo_grupo"] + SCD2,
      ["id_grupo_acesso"]),
     (ACC, "grupo_acesso_membro",
      ["id_grupo_acesso", "cod_conta_databricks", "tipo_entidade", "id_entidade", "nome_entidade"] + SCD2,

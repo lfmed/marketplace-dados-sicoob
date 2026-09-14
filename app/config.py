@@ -58,6 +58,10 @@ class Config:
     SCHEMA_GESTAO = os.getenv("SCHEMA_GESTAO", "gestao_acesso")
     SCHEMA_APP = os.getenv("SCHEMA_APP", "marketplace_app")
 
+    # Valor de grupo_acesso.tipo_grupo que marca um grupo EXPLORATÓRIO (para o qual o usuário
+    # pode solicitar acesso). Comparação case-insensitive. Cliente: 'exploratorio'.
+    GRUPO_TIPO_EXPLORATORIO = os.getenv("GRUPO_TIPO_EXPLORATORIO", "exploratorio")
+
     # --- Identidade / demo ---
     # Em prod: identidade via SSO (header X-Forwarded-Email). Em dev: proxy "atuar como".
     ENABLE_PROXY = _b(os.getenv("APP_ENABLE_PROXY"), True)

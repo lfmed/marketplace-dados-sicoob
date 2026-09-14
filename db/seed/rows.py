@@ -109,10 +109,10 @@ def build_rows(icas):
             "bol_ativo": True, "bol_atual": True, "bol_excluido": False})
     for u, g in data.HIERARQUIA:
         r["hierarquia_usuario"].append({"id_usuario_aisn": u, "id_gestor_aisn": g, **_scd2()})
-    for gid, nome_grupo, _tipo, membros in data.GRUPOS:   # grupo_acesso NÃO tem mais tipo_grupo
+    for gid, nome_grupo, tipo_grupo, membros in data.GRUPOS:   # tipo_grupo: EXPLORATORIO etc.
         r["grupo_acesso"].append({
             "id_grupo_acesso": gid, "id_externo_grupo": None, "cod_conta_databricks": None,
-            "nome_grupo": nome_grupo, **_scd2()})
+            "nome_grupo": nome_grupo, "tipo_grupo": tipo_grupo, **_scd2()})
         for m in membros:
             r["grupo_acesso_membro"].append({
                 "id_grupo_acesso": gid, "cod_conta_databricks": None, "tipo_entidade": "USUARIO",
@@ -141,9 +141,10 @@ def build_rows(icas):
     def _add_ativo(aid, tipo, nome, desc, owner):
         gid = f"grpat_{aid}"
         nome_grupo = f"{config.UC_SCHEMA_PREFIX}_at_{aid}"
+        # Grupo de acesso do ativo — NÃO é exploratório (tipo_grupo nulo).
         r["grupo_acesso"].append({
             "id_grupo_acesso": gid, "id_externo_grupo": None, "cod_conta_databricks": None,
-            "nome_grupo": nome_grupo, **_scd2()})
+            "nome_grupo": nome_grupo, "tipo_grupo": None, **_scd2()})
         r["ativo_aisn"].append({
             "id_ativo_aisn": aid, "id_grupo_acesso": gid, "nome_grupo_ativo": nome_grupo,
             "desc_grupo_ativo": f"Grupo do ativo {nome}", "cod_tipo_ativo": tipo,

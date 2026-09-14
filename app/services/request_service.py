@@ -4,6 +4,7 @@ import uuid
 
 from app import db
 from app import constants as C
+from app.config import config
 from app.schemas import GOV, ACC, APP
 from app.services import audit_service, ativo_scope
 from app.services.ativo_scope import objetos_do_ativo, rotulo_objeto
@@ -41,16 +42,18 @@ def e_superior(id_gestor, id_usuario):
 
 
 def grupos_do_usuario(id_usuario):
-    """Grupos em nome dos quais o usuário pode solicitar (RF-047, RN-007). Sem tipo_grupo
-    no modelo oficial → todos os grupos de que o usuário é membro (entidade USUARIO)."""
+    """Grupos EXPLORATÓRIOS em nome dos quais o usuário pode solicitar (RF-047, RN-007):
+    grupos de que ele é membro (grupo_acesso_membro, entidade USUARIO) E cujo
+    grupo_acesso.tipo_grupo = 'exploratorio' (case-insensitive, config)."""
     return db.query(
         f"""SELECT g.id_grupo_acesso, g.nome_grupo
              FROM {ACC}.grupo_acesso_membro m
              JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=m.id_grupo_acesso
             WHERE m.id_entidade=%s AND m.bol_atual=true AND g.bol_atual=true
               AND (m.tipo_entidade='USUARIO' OR m.tipo_entidade IS NULL)
+              AND lower(g.tipo_grupo)=lower(%s)
             ORDER BY g.nome_grupo""",
-        (id_usuario,))
+        (id_usuario, config.GRUPO_TIPO_EXPLORATORIO))
 
 
 # ---------------- Regras ----------------
