@@ -30,8 +30,16 @@ def _api(method, path, body=None):
 
 
 def branch_resource():
-    # endpoint -> .../branches/<b>/endpoints/<e>; branch = tudo antes de /endpoints
-    ep = config.LAKEBASE_ENDPOINT
+    # endpoint -> .../branches/<b>/endpoints/<e>; branch = tudo antes de /endpoints.
+    # Guard: se o endpoint vier vazio/malformado, o servidor devolveria um erro críptico
+    # (" is not a valid endpoint id"). Falha aqui com mensagem acionável.
+    ep = config.LAKEBASE_ENDPOINT or ""
+    if "/endpoints/" not in ep:
+        raise ValueError(
+            f"LAKEBASE_ENDPOINT inválido ou vazio: {ep!r}. Defina no formato "
+            "projects/<projeto>/branches/<branch>/endpoints/<endpoint> "
+            "(cell de config do notebook, ou env LAKEBASE_ENDPOINT no app.yaml)."
+        )
     return ep.split("/endpoints/")[0]
 
 
@@ -77,6 +85,13 @@ def create_synced_tables():
 
 
 def main():
+    print("== Config resolvida ==")
+    print(f"  LAKEBASE_ENDPOINT   = {config.LAKEBASE_ENDPOINT!r}")
+    print(f"  LAKEBASE_DBNAME     = {config.LAKEBASE_DBNAME!r}")
+    print(f"  LAKEBASE_UC_CATALOG = {LAKEBASE_UC_CATALOG!r}")
+    print(f"  GOV_CATALOG (Delta) = {config.GOV_CATALOG!r}")
+    print(f"  WAREHOUSE_ID        = {config.WAREHOUSE_ID!r}")
+    print(f"  scheduling_policy   = {SCHED!r}")
     print("== Registrando banco Lakebase no UC ==")
     register_catalog()
     print(f"== Criando synced tables ({', '.join(DELTA_SCHEMAS)}) ==")

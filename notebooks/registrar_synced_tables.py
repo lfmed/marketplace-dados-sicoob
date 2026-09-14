@@ -23,7 +23,14 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install "psycopg[binary]>=3.1" "databricks-sdk>=0.81.0"
+# MAGIC %md
+# MAGIC Instala as libs do app (mesmas do `requirements.txt`). **Flask é obrigatório**: importar
+# MAGIC `db.native_sync_setup` puxa `from app.config …`, e importar o pacote `app` executa
+# MAGIC `app/__init__.py` (que carrega o Flask). O runtime do notebook não traz Flask (só o de Apps).
+
+# COMMAND ----------
+
+# MAGIC %pip install "Flask>=3.0" "psycopg[binary]>=3.1" "databricks-sdk>=0.81.0" "python-dotenv>=1.0"
 
 # COMMAND ----------
 
