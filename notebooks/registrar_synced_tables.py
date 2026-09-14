@@ -78,19 +78,55 @@ print("Config aplicada. Catálogo Delta:", os.environ["GOV_CATALOG"],
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 2. Registrar o catálogo Lakebase + criar as synced tables
+# MAGIC ## 2. Chaves primárias por tabela — **EDITE se precisar**
+# MAGIC A synced table usa a PK para o *upsert*. Os valores abaixo são o **padrão do modelo
+# MAGIC oficial** (`db/seed/gov_schema.py`); ajuste a lista de colunas de qualquer tabela cuja
+# MAGIC PK seja diferente no seu ambiente. A chave do dicionário é o **nome da tabela**
+# MAGIC (tabela não listada aqui cai no padrão do modelo).
+
+# COMMAND ----------
+
+PRIMARY_KEYS = {
+    # --- governanca (taxonomia) ---
+    "dominio_informacao":          ["id_dominio_informacao"],
+    "subdominio_informacao":       ["id_subdominio_informacao"],
+    "iniciativa_aisn":             ["id_iniciativa_aisn"],
+    "camada_aisn":                 ["id_camada_aisn"],
+    "ambiente_aisn":               ["id_ambiente_aisn"],
+    "iniciativa_camada_ambiente":  ["id_iniciativa_camada_ambiente"],
+    "subdominio_camada_ambiente":  ["id_subdominio_camada_ambiente"],
+    "dominio_camada_ambiente":     ["id_dominio_camada_ambiente"],
+    "tabela_aisn":                 ["id_tabela_aisn"],
+    "usuario_aisn":                ["id_usuario_aisn"],
+    "dominio_proprietario":        ["id_dominio_informacao", "id_usuario_aisn"],
+    "subdominio_proprietario":     ["id_subdominio_informacao", "id_usuario_aisn"],
+    "iniciativa_proprietario":     ["id_iniciativa_aisn", "id_usuario_aisn"],
+    # --- gestao_acesso (referência de acesso) ---
+    "hierarquia_usuario":          ["id_usuario_aisn", "id_gestor_aisn"],
+    "grupo_acesso":                ["id_grupo_acesso"],
+    "grupo_acesso_membro":         ["id_grupo_acesso", "id_entidade"],
+    "ativo_aisn":                  ["id_ativo_aisn"],
+    "ativo_proprietario":          ["id_ativo_aisn", "id_usuario_aisn"],
+}
+print(f"{len(PRIMARY_KEYS)} tabelas com PK definida")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 3. Registrar o catálogo Lakebase + criar as synced tables
 # MAGIC Cria uma synced table por tabela do Motor (governanca + gestao_acesso). Idempotente.
+# MAGIC Usa as PKs definidas acima (`pk_overrides`).
 
 # COMMAND ----------
 
 from db.native_sync_setup import main as registrar_synced_tables
 
-registrar_synced_tables()
+registrar_synced_tables(pk_overrides=PRIMARY_KEYS)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 3. Verificar (mesmo diagnóstico que o app faz no boot)
+# MAGIC ## 4. Verificar (mesmo diagnóstico que o app faz no boot)
 # MAGIC Confirma que os mirrors ficaram visíveis no Lakebase e conta as linhas das tabelas-chave.
 
 # COMMAND ----------
@@ -103,7 +139,7 @@ print("\nMirrors OK ✓" if ok else "\nAlgo faltou — veja os ✗ acima")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 4. (Opcional) Atualização recorrente
+# MAGIC ## 5. (Opcional) Atualização recorrente
 # MAGIC Se usar `SNAPSHOT`/`TRIGGERED`, agende este notebook como um **Job** (Databricks
 # MAGIC Workflows) na cadência desejada, ou troque `SYNC_SCHEDULING_POLICY=CONTINUOUS` para
 # MAGIC sync contínuo. Reexecutar é seguro (idempotente).

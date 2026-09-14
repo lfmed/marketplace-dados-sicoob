@@ -58,13 +58,17 @@ def register_catalog():
     print(f"  catálogo UC '{LAKEBASE_UC_CATALOG}' registrado -> Lakebase")
 
 
-def create_synced_tables():
+def create_synced_tables(pk_overrides=None):
     # Origem Delta do Motor: catálogo parametrizável (cliente = plataforma) + os schemas
     # governanca/gestao_acesso. Destino: mesmos schemas no catálogo UC do Lakebase.
+    # pk_overrides: dict {nome_tabela -> [colunas de PK]} para o cliente ajustar a chave
+    # primária de cada tabela sem editar o modelo; ausente/vazio => usa o padrão do modelo.
+    pk_overrides = pk_overrides or {}
     cat = config.GOV_CATALOG
     # schema de checkpoints do pipeline
     run_sql(f"CREATE SCHEMA IF NOT EXISTS {cat}.{CKPT_SCHEMA}")
     for schema, tabela, cols, pk in GOV_TABLES:
+        pk_use = pk_overrides.get(tabela, pk)
         src = f"{cat}.{schema}.{tabela}"
         dst = f"{LAKEBASE_UC_CATALOG}.{schema}.{tabela}"
         try:
@@ -79,7 +83,7 @@ def create_synced_tables():
         # registrado (mesmo valor que o catálogo aponta) e também no catálogo padrão.
         body = {"name": f"synced_tables/{dst}",
                 "spec": {"source_table_full_name": src,
-                         "primary_key_columns": pk,
+                         "primary_key_columns": pk_use,
                          "scheduling_policy": SCHED,
                          "branch": branch_resource(),
                          "postgres_database": config.LAKEBASE_DBNAME,
@@ -87,10 +91,10 @@ def create_synced_tables():
                          "new_pipeline_spec": {"storage_catalog": cat,
                                                "storage_schema": CKPT_SCHEMA}}}
         _api("POST", f"/api/2.0/postgres/synced_tables?synced_table_id={dst}", body)
-        print(f"  synced table criada: {dst}  (policy={SCHED})")
+        print(f"  synced table criada: {dst}  (policy={SCHED}, pk={pk_use})")
 
 
-def main():
+def main(pk_overrides=None):
     print("== Config resolvida ==")
     print(f"  LAKEBASE_ENDPOINT   = {config.LAKEBASE_ENDPOINT!r}")
     print(f"  LAKEBASE_DBNAME     = {config.LAKEBASE_DBNAME!r}")
@@ -101,7 +105,7 @@ def main():
     print("== Registrando banco Lakebase no UC ==")
     register_catalog()
     print(f"== Criando synced tables ({', '.join(DELTA_SCHEMAS)}) ==")
-    create_synced_tables()
+    create_synced_tables(pk_overrides)
     print("Synced tables nativas configuradas.")
 
 
