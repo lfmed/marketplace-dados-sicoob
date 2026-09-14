@@ -133,10 +133,12 @@ APP_ENABLE_PROXY      false             # identidade só por SSO (X-Forwarded-Em
 
 ### 4. Provisionar o banco (sem seed — governança já existe)
 
-**Sem CLI:** pule este passo — o `marketplace_app` é criado pela app na subida (§⚡). As
-*synced tables* dos mirrors são registradas pelo Motor do cliente (ou por um admin com
-`CREATE CATALOG`). Alternativas sem CLI: `from app.bootstrap import run; run()` num notebook
-do repo, ou colar `db/ddl/marketplace_app.sql` no editor SQL do Lakebase.
+**Sem CLI:** o `marketplace_app` é criado pela app na subida (§⚡). As *synced tables* dos
+mirrors (governanca/gestao_acesso) são registradas **sem CLI** rodando o notebook
+**`notebooks/registrar_synced_tables.py`** no workspace (server-side — chama
+`db.native_sync_setup`; exige `CREATE CATALOG` no metastore). Alternativas p/ o
+`marketplace_app`: `from app.bootstrap import run; run()` num notebook, ou colar
+`db/ddl/marketplace_app.sql` no editor SQL do Lakebase.
 
 **Com CLI** (cria o `marketplace_app` **e** registra as synced tables num passo só):
 ```bash

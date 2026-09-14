@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS marketplace_app.solicitacao_acesso (
         'APROVADA_OWNER','REPROVADA_OWNER','CANCELADA')),
     CONSTRAINT ck_solicitacao_benef CHECK (
         (cod_tipo_beneficiario = 'NOMINAL' AND id_usuario_beneficiario IS NOT NULL AND id_grupo_acesso IS NULL) OR
-        (cod_tipo_beneficiario = 'GRUPO'   AND id_grupo_acesso IS NOT NULL))
+        (cod_tipo_beneficiario = 'GRUPO'   AND id_grupo_acesso IS NOT NULL AND id_usuario_beneficiario IS NULL))
 );
 
 -- ---------- Autorização hierárquica (gestor) — RF-026..033 ----------

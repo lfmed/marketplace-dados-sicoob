@@ -22,6 +22,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Este entrypoint provisiona pelos seus próprios passos; o import da app NÃO deve disparar
+# o bootstrap-no-boot (evita ✗ de mirror espúrios num banco recém-criado) nem o worker.
+os.environ.setdefault("AUTO_BOOTSTRAP_APP_SCHEMA", "false")
+os.environ.setdefault("APP_DISABLE_WORKER", "true")
+
 from app.config import config  # noqa: E402
 from app.db import run_script  # noqa: E402
 
@@ -29,13 +34,10 @@ DDL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ddl")
 
 
 def apply_ddl(fname):
+    from app.schemas import substitute_schemas
     with open(os.path.join(DDL_DIR, fname), encoding="utf-8") as fh:
-        sql = fh.read()
-    # Substitui os placeholders de schema pelos nomes parametrizados (catálogo/schema
-    # do dev != cliente). {GOV}/{ACC}/{APP} -> config.
-    sql = (sql.replace("{GOV}", config.SCHEMA_GOVERNANCA)
-              .replace("{ACC}", config.SCHEMA_GESTAO)
-              .replace("{APP}", config.SCHEMA_APP))
+        # {GOV}/{ACC}/{APP} -> nomes de config (regra compartilhada — app/schemas.py).
+        sql = substitute_schemas(fh.read())
     run_script(sql)
     print(f"  DDL aplicado: {fname}")
 

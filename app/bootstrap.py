@@ -42,15 +42,12 @@ def _log(msg, mark="•"):
 
 
 def _ddl_app_sql():
-    """Lê db/ddl/03_app.sql e substitui os placeholders de schema pelos nomes de config
-    (mesma regra do db/setup.py — fonte única de DDL)."""
-    from app.config import config
+    """Lê db/ddl/03_app.sql (fonte única de DDL) e substitui os placeholders pelos nomes
+    de schema de config, via app.schemas.substitute_schemas (regra compartilhada)."""
+    from app.schemas import substitute_schemas
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(root, "db", "ddl", "03_app.sql"), encoding="utf-8") as fh:
-        sql = fh.read()
-    return (sql.replace("{GOV}", config.SCHEMA_GOVERNANCA)
-               .replace("{ACC}", config.SCHEMA_GESTAO)
-               .replace("{APP}", config.SCHEMA_APP))
+        return substitute_schemas(fh.read())
 
 
 def _tables_in(schema):

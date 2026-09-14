@@ -13,7 +13,11 @@ PROFILE = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
 
 
 def get_client():
-    return WorkspaceClient(profile=PROFILE)
+    # No Databricks (notebook/Apps) não há perfil de CLI: cai para a auth do ambiente.
+    try:
+        return WorkspaceClient(profile=PROFILE)
+    except Exception:
+        return WorkspaceClient()
 
 
 def run_sql(sql: str, warehouse_id: str = DEFAULT_WAREHOUSE, catalog=None, schema=None):

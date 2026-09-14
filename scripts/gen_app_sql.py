@@ -10,8 +10,14 @@ Uso:
 """
 import argparse
 import os
+import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+# Codegen puro: o import de app.schemas NÃO deve disparar o bootstrap-no-boot nem o worker.
+os.environ.setdefault("AUTO_BOOTSTRAP_APP_SCHEMA", "false")
+os.environ.setdefault("APP_DISABLE_WORKER", "true")
+
 SRC = os.path.join(ROOT, "db", "ddl", "03_app.sql")
 DEFAULT_OUT = os.path.join(ROOT, "db", "ddl", "marketplace_app.sql")
 
@@ -29,9 +35,9 @@ CABECALHO = """-- ==============================================================
 
 
 def gerar(app="marketplace_app", gov="governanca", acc="gestao_acesso"):
+    from app.schemas import substitute_schemas  # regra de substituição compartilhada
     with open(SRC, encoding="utf-8") as fh:
-        sql = fh.read()
-    sql = sql.replace("{APP}", app).replace("{GOV}", gov).replace("{ACC}", acc)
+        sql = substitute_schemas(fh.read(), gov=gov, acc=acc, app=app)
     return CABECALHO.format(app=app, gov=gov, acc=acc) + sql
 
 

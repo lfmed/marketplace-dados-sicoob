@@ -20,3 +20,12 @@ from app.config import config
 GOV = config.SCHEMA_GOVERNANCA   # governanca
 ACC = config.SCHEMA_GESTAO       # gestao_acesso (referência de acesso)
 APP = config.SCHEMA_APP          # marketplace_app (workflow)
+
+
+def substitute_schemas(sql: str, gov: str = None, acc: str = None, app: str = None) -> str:
+    """Substitui os placeholders {GOV}/{ACC}/{APP} do DDL pelos nomes de schema. Fonte
+    ÚNICA da regra de substituição — usada por db/setup.py (aplica), app/bootstrap.py
+    (boot) e scripts/gen_app_sql.py (gera SQL avulso, aí com nomes arbitrários)."""
+    return (sql.replace("{GOV}", gov if gov is not None else GOV)
+               .replace("{ACC}", acc if acc is not None else ACC)
+               .replace("{APP}", app if app is not None else APP))

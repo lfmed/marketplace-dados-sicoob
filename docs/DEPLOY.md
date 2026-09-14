@@ -34,8 +34,8 @@ provisionamento acontece server-side. Passos, tudo pela **UI**:
 > **O que a app cria vs. o que já tem que existir:** a app só cria o **seu** schema de
 > workflow (`marketplace_app`). Os schemas de **leitura** `governanca` e `gestao_acesso`
 > são **synced tables do Motor** do cliente — devem existir **antes** (o log `[3/3]` acima
-> confirma que a app as enxerga; se aparecer `✗ ... VAZIO/ausente`, o time do Motor precisa
-> registrá-las — ver §3).
+> confirma que a app as enxerga; se aparecer `✗ ... VAZIO/ausente`, registre-as **sem CLI**
+> rodando o notebook `notebooks/registrar_synced_tables.py` no workspace — ver §3).
 
 **Alternativas sem CLI** para criar o `marketplace_app` (caso prefira não usar o boot):
 - **Notebook no repo clonado** (server-side): abra um notebook na pasta do repo e rode
@@ -123,8 +123,11 @@ Defina via env ou `app.yaml` (nenhum valor é hardcoded fora de `app/config.py`)
 ## 3. Provisionar o banco (reproduzível)
 
 > **Sem CLI?** O schema de workflow (`marketplace_app`) é criado **automaticamente na
-> subida do app** (§⚡ acima, `AUTO_BOOTSTRAP_APP_SCHEMA=true`) — esta seção é para quem
-> tem CLI ou quer rodar o provisionamento completo (incl. synced tables) explicitamente.
+> subida do app** (§⚡ acima, `AUTO_BOOTSTRAP_APP_SCHEMA=true`). E as **synced tables**
+> dos mirrors (governanca/gestao_acesso) podem ser registradas **sem CLI** rodando o
+> notebook **`notebooks/registrar_synced_tables.py`** dentro do workspace (server-side —
+> chama `db.native_sync_setup`; exige `CREATE CATALOG` no metastore + criar synced tables).
+> Esta seção com `python -m db.setup` é para quem tem a CLI e quer fazer tudo num comando.
 
 Um único entrypoint recria tudo (idempotente):
 
@@ -167,15 +170,30 @@ GRANT USE SCHEMA, MANAGE ON SCHEMA <UC_CATALOG>.<cada schema mkt_*> TO `<app-sp-
   databricks postgres create-role projects/<proj>/branches/production --role-id app-marketplace \
     --json '{"spec":{"identity_type":"SERVICE_PRINCIPAL","auth_method":"LAKEBASE_OAUTH_V1","postgres_role":"<sp-client-id>"}}'
   ```
-  Depois (como owner do projeto), no Postgres:
+  Depois (como owner do projeto), no Postgres. **Os mirrors `governanca`/`gestao_acesso`
+  são SÓ-LEITURA** (o app nunca escreve neles); o app grava só no seu schema de workflow
+  `marketplace_app`:
   ```sql
   GRANT CONNECT ON DATABASE databricks_postgres TO "<sp-client-id>";
-  GRANT USAGE ON SCHEMA governanca TO "<sp-client-id>";
-  GRANT SELECT ON ALL TABLES IN SCHEMA governanca TO "<sp-client-id>";
-  GRANT USAGE ON SCHEMA gestao_acesso TO "<sp-client-id>";
-  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA gestao_acesso TO "<sp-client-id>";
-  ALTER DEFAULT PRIVILEGES IN SCHEMA gestao_acesso GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "<sp-client-id>";
+  -- Mirrors do Motor (somente leitura):
+  GRANT USAGE ON SCHEMA governanca      TO "<sp-client-id>";
+  GRANT SELECT ON ALL TABLES IN SCHEMA governanca      TO "<sp-client-id>";
+  GRANT USAGE ON SCHEMA gestao_acesso   TO "<sp-client-id>";
+  GRANT SELECT ON ALL TABLES IN SCHEMA gestao_acesso   TO "<sp-client-id>";
+  -- Workflow do app (leitura/escrita). Para o self-bootstrap CRIAR o schema no boot, o SP
+  -- precisa poder criá-lo — escolha UMA das opções:
+  --   (a) deixar o boot criar: dê CREATE no database (o schema fica com o SP como owner)
+  GRANT CREATE ON DATABASE databricks_postgres TO "<sp-client-id>";
+  --   (b) OU pré-criar o schema com outro role e só conceder o uso ao SP:
+  --       CREATE SCHEMA IF NOT EXISTS marketplace_app AUTHORIZATION "<sp-client-id>";
+  --       (nesse caso o CREATE ON DATABASE acima é dispensável)
+  GRANT USAGE, CREATE ON SCHEMA marketplace_app TO "<sp-client-id>";
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA marketplace_app TO "<sp-client-id>";
+  ALTER DEFAULT PRIVILEGES IN SCHEMA marketplace_app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "<sp-client-id>";
   ```
+  > Se `AUTO_BOOTSTRAP_APP_SCHEMA=false` (não usar o boot), o schema `marketplace_app`
+  > tem que existir antes — via notebook (`from app.bootstrap import run; run()`) ou colando
+  > `db/ddl/marketplace_app.sql` no editor SQL do Lakebase.
 
 ## 5. Publicar o app (Databricks Apps)
 
