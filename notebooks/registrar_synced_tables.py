@@ -65,6 +65,10 @@ os.environ["DATABRICKS_WAREHOUSE_ID"] = "<warehouse_id_do_cliente>"
 # CONTINUOUS (streaming). Governança muda pouco -> SNAPSHOT/TRIGGERED costuma bastar.
 os.environ["SYNC_SCHEDULING_POLICY"] = "TRIGGERED"
 
+# Recriar synced tables que JÁ existem? True dropa+recria (para aplicar nova PK ou policy);
+# False (padrão) pula as que já existem. A PK só é aplicada na CRIAÇÃO da synced table.
+RECREATE = False
+
 # Este notebook só PROVISIONA; não sobe app/worker no processo do notebook.
 os.environ["AUTO_BOOTSTRAP_APP_SCHEMA"] = "false"
 os.environ["APP_DISABLE_WORKER"] = "true"
@@ -121,7 +125,7 @@ print(f"{len(PRIMARY_KEYS)} tabelas com PK definida")
 
 from db.native_sync_setup import main as registrar_synced_tables
 
-registrar_synced_tables(pk_overrides=PRIMARY_KEYS)
+registrar_synced_tables(pk_overrides=PRIMARY_KEYS, recreate=RECREATE)
 
 # COMMAND ----------
 

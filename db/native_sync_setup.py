@@ -12,6 +12,7 @@ Uso: DATABRICKS_CONFIG_PROFILE=DEFAULT python3 -m db.native_sync_setup
 """
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -58,11 +59,26 @@ def register_catalog():
     print(f"  catálogo UC '{LAKEBASE_UC_CATALOG}' registrado -> Lakebase")
 
 
-def create_synced_tables(pk_overrides=None):
+def _delete_synced_table(dst):
+    """Remove a synced table e espera sumir (recreate). DELETE basta — não é preciso
+    dropar a tabela Postgres (validado: recriar com PK diferente funciona)."""
+    _api("DELETE", f"/api/2.0/postgres/synced_tables/{dst}")
+    for _ in range(15):  # eventual: aguarda o GET voltar 404
+        try:
+            _api("GET", f"/api/2.0/postgres/synced_tables/{dst}")
+            time.sleep(2)
+        except Exception:
+            return
+    print(f"  ⚠ {dst} ainda aparece após o delete; seguindo mesmo assim")
+
+
+def create_synced_tables(pk_overrides=None, recreate=False):
     # Origem Delta do Motor: catálogo parametrizável (cliente = plataforma) + os schemas
     # governanca/gestao_acesso. Destino: mesmos schemas no catálogo UC do Lakebase.
     # pk_overrides: dict {nome_tabela -> [colunas de PK]} para o cliente ajustar a chave
     # primária de cada tabela sem editar o modelo; ausente/vazio => usa o padrão do modelo.
+    # recreate: se True, dropa e recria synced tables que já existem (p/ aplicar nova PK/policy);
+    # se False (padrão), pula as que já existem.
     pk_overrides = pk_overrides or {}
     cat = config.GOV_CATALOG
     # schema de checkpoints do pipeline
@@ -71,12 +87,17 @@ def create_synced_tables(pk_overrides=None):
         pk_use = pk_overrides.get(tabela, pk)
         src = f"{cat}.{schema}.{tabela}"
         dst = f"{LAKEBASE_UC_CATALOG}.{schema}.{tabela}"
+        exists = True
         try:
             _api("GET", f"/api/2.0/postgres/synced_tables/{dst}")
-            print(f"  synced table {dst} já existe")
-            continue
         except Exception:
-            pass
+            exists = False
+        if exists:
+            if not recreate:
+                print(f"  synced table {dst} já existe (use recreate=True p/ recriar)")
+                continue
+            _delete_synced_table(dst)
+            print(f"  synced table {dst} removida (recreate)")
         # 'branch' é obrigatório no spec da synced table: é o que liga a synced table ao
         # endpoint do Lakebase. Sem ele o servidor devolve " is not a valid endpoint id".
         # 'postgres_database' é explícito (validado ponta a ponta): funciona no catálogo
@@ -94,7 +115,7 @@ def create_synced_tables(pk_overrides=None):
         print(f"  synced table criada: {dst}  (policy={SCHED}, pk={pk_use})")
 
 
-def main(pk_overrides=None):
+def main(pk_overrides=None, recreate=False):
     print("== Config resolvida ==")
     print(f"  LAKEBASE_ENDPOINT   = {config.LAKEBASE_ENDPOINT!r}")
     print(f"  LAKEBASE_DBNAME     = {config.LAKEBASE_DBNAME!r}")
@@ -104,8 +125,8 @@ def main(pk_overrides=None):
     print(f"  scheduling_policy   = {SCHED!r}")
     print("== Registrando banco Lakebase no UC ==")
     register_catalog()
-    print(f"== Criando synced tables ({', '.join(DELTA_SCHEMAS)}) ==")
-    create_synced_tables(pk_overrides)
+    print(f"== Criando synced tables ({', '.join(DELTA_SCHEMAS)}) — recreate={recreate} ==")
+    create_synced_tables(pk_overrides, recreate=recreate)
     print("Synced tables nativas configuradas.")
 
 
