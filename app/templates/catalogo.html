@@ -26,19 +26,11 @@
     </select>
   </div>
   <div class="field">
-    <label>Nível</label>
-    <select name="tipo" onchange="this.form.submit()">
-      <option value="">Todos os níveis</option>
-      {% for t in tipos %}
-      <option value="{{ t }}" {% if f_tipo==t %}selected{% endif %}>{{ tipo_label[t] }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="field">
     <label>Buscar</label>
     <input type="text" name="busca" value="{{ f_busca or '' }}" placeholder="Nome ou descrição do ativo">
   </div>
   <button class="btn" type="submit">Filtrar</button>
+  <a class="btn ghost" href="{{ url_for('catalog.catalogo') }}">Limpar filtros</a>
 </form>
 
 <div class="count">{{ total }} ativo(s) de dados encontrado(s)</div>
@@ -50,8 +42,10 @@
       <span class="pill lvl">{{ a.tipo_label }}</span>
       {% if a.nome_dominio %}<span class="pill dom">{{ a.nome_dominio }}</span>{% endif %}
       {% if a.nome_subdominio %}<span class="pill sub">{{ a.nome_subdominio }}</span>{% endif %}
+      {% if a.nome_camada %}<span class="pill cam">{{ a.nome_camada }}</span>{% endif %}
+      {% if a.nome_ambiente %}<span class="pill amb">{{ a.nome_ambiente }}</span>{% endif %}
     </div>
-    <h3>{{ a.nome_ativo }}</h3>
+    <h3>{{ a.titulo or a.nome_ativo }}</h3>
     <div class="desc">{{ a.desc_ativo }}</div>
     <div class="meta">
       <span>👤 {{ a.owners or '—' }}</span>

@@ -31,27 +31,6 @@ def eventos_da_solicitacao(id_solicitacao):
     )
 
 
-def resumo_dominio():
-    """Visão agregada por domínio. O domínio de cada ativo é derivado polimorficamente."""
-    dom_expr = ativo_scope.dominio_id_expr()
-    join = ativo_scope.ativo_join("a")
-    return db.query(
-        f"""SELECT d.id_dominio_informacao, d.nome_dominio,
-                  (SELECT count(*) FROM {ACC}.ativo_aisn a {join}
-                    WHERE a.bol_atual=true AND {dom_expr}=d.id_dominio_informacao) AS num_ativos,
-                  (SELECT count(*) FROM {APP}.acesso ac
-                     JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=ac.id_ativo_aisn {join}
-                    WHERE {dom_expr}=d.id_dominio_informacao
-                      AND ac.cod_status_acesso='EFETIVADO') AS acessos_ativos,
-                  (SELECT count(*) FROM {APP}.solicitacao_acesso so
-                     JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=so.id_ativo_aisn {join}
-                    WHERE {dom_expr}=d.id_dominio_informacao
-                      AND so.cod_status_solicitacao IN ('PENDENTE_AUTORIZACAO','AUTORIZADA')) AS solicitacoes_abertas
-             FROM {GOV}.dominio_informacao d
-            WHERE d.bol_atual=true
-            ORDER BY d.nome_dominio""")
-
-
 def auditoria_do_owner(id_owner):
     """Visão de auditoria restrita ao escopo do owner (RF-088, RN-026)."""
     return db.query(

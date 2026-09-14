@@ -8,8 +8,10 @@
     <span class="pill lvl">{{ ativo.tipo_label }}</span>
     {% if ativo.nome_dominio %}<span class="pill dom">{{ ativo.nome_dominio }}</span>{% endif %}
     {% if ativo.nome_subdominio %}<span class="pill sub">{{ ativo.nome_subdominio }}</span>{% endif %}
+    {% if ativo.nome_camada %}<span class="pill cam">{{ ativo.nome_camada }}</span>{% endif %}
+    {% if ativo.nome_ambiente %}<span class="pill amb">{{ ativo.nome_ambiente }}</span>{% endif %}
   </div>
-  <h2>{{ ativo.nome_ativo }}</h2>
+  <h2>{{ ativo.titulo or ativo.nome_ativo }}</h2>
   <p>{{ ativo.desc_ativo }}</p>
 </div>
 
@@ -24,15 +26,18 @@
 </div>
 
 <div class="panel">
-  <h3>Escopo de dados (objetos concedidos)</h3>
+  <h3>Tabelas incluídas neste ativo</h3>
   <p class="muted">O acesso é concedido no nível do ativo (<b>{{ ativo.tipo_label }}</b>) e cobre
-    {{ ativo.objetos|length }} objeto(s) do Unity Catalog.</p>
+    as {{ ativo.tabelas|length }} tabela(s) abaixo.</p>
   <table>
-    <tr><th>Tipo</th><th>Objeto (Unity Catalog)</th></tr>
-    {% for o in ativo.objetos %}
-    <tr><td>{{ o.tipo }}</td><td><code class="schip">{{ o.rotulo }}</code></td></tr>
+    <tr><th>Tabela (Unity Catalog)</th><th>Descrição</th></tr>
+    {% for t in ativo.tabelas %}
+    <tr>
+      <td><code class="schip">{{ t.nome_catalogo }}.{{ t.nome_schema }}.{{ t.nome_tabela }}</code></td>
+      <td>{{ t.desc_tabela or '—' }}</td>
+    </tr>
     {% else %}
-    <tr><td colspan="2" class="muted">Sem objetos resolvidos para este ativo.</td></tr>
+    <tr><td colspan="2" class="muted">Sem tabelas resolvidas para este ativo.</td></tr>
     {% endfor %}
   </table>
 </div>
@@ -57,14 +62,6 @@
       </select>
     </div>
     {% endif %}
-
-    <div class="form-row">
-      <label>Tipo de acesso (RF-014)</label>
-      <select name="tipo_acesso">
-        <option value="LEITURA">Leitura (SELECT)</option>
-        <option value="LEITURA_ESCRITA">Leitura e escrita (SELECT + MODIFY)</option>
-      </select>
-    </div>
 
     <div class="form-row">
       <label>Justificativa</label>

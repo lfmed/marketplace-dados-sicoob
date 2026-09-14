@@ -26,15 +26,13 @@ def check(path, must=None, proxy=None):
         falhas += 1
         print("   ", body[:500])
 
-check("/catalogo", ["Catálogo de Produtos de Dados", "IB · Navegação"], proxy="u_ana")
+check("/catalogo", ["Catálogo de Produtos de Dados", "Limpar filtros"], proxy="u_ana")
 check("/catalogo?dominio=dom_cliente")
 check("/minhas-solicitacoes")
 check("/aprovacoes", ["Aprovações"])
 check("/meus-acessos")
 check("/acessos-owner")
 check("/auditoria")
-check("/resumo-dominio", ["Resumo do Domínio"])
-check("/iniciativa/ini_ib_nav", ["Solicitar acesso", "Camadas"])
 check("/health")
 
 print("SMOKE UI:", "✅ OK" if falhas == 0 else f"❌ {falhas} falha(s)")

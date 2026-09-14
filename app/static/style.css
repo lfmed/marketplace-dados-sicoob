@@ -59,6 +59,8 @@ a{color:inherit;text-decoration:none}
 .pill.dom{background:var(--dark-pill);color:#eafaf6}
 .pill.sub{background:#d6efe8;color:#1c6b58}
 .pill.lvl{background:#e7e0f7;color:#5b3d8a}
+.pill.cam{background:#e0edf7;color:#2a577a}
+.pill.amb{background:#f7ede0;color:#7a562a}
 .card h3{margin:2px 0;font-size:17px}
 .card .desc{color:var(--muted);font-size:13.5px;min-height:38px}
 .card .meta{color:var(--muted);font-size:13px;display:flex;gap:14px;align-items:center;border-top:1px solid var(--line);padding-top:10px}

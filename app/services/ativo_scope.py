@@ -55,6 +55,46 @@ def objetos_do_ativo(ativo):
              "tabela": None} for r in rows]
 
 
+def tabelas_do_ativo(ativo):
+    """Tabelas concretas contidas no ativo, com nome e DESCRIÇÃO (feedback do cliente:
+    apresentar todas as tabelas do ativo ao solicitar). Sempre resolve em {GOV}.tabela_aisn."""
+    tipo = str(ativo.get("cod_tipo_ativo") or "")
+    aid = ativo.get("id_ativo_aisn")
+    if not aid:
+        return []
+    if tipo == C.AT_TABELA:
+        return db.query(
+            f"""SELECT nome_catalogo, nome_schema, nome_tabela, desc_tabela
+                  FROM {GOV}.tabela_aisn WHERE id_tabela_aisn=%s AND bol_atual=true""", (aid,))
+    if tipo == C.AT_ICA:
+        return db.query(
+            f"""SELECT nome_catalogo, nome_schema, nome_tabela, desc_tabela
+                  FROM {GOV}.tabela_aisn WHERE id_iniciativa_camada_ambiente=%s AND bol_atual=true
+                 ORDER BY nome_tabela""", (aid,))
+    if tipo == C.AT_SUBDOMINIO:
+        return db.query(
+            f"""SELECT DISTINCT t.nome_catalogo, t.nome_schema, t.nome_tabela, t.desc_tabela
+                  FROM {GOV}.subdominio_camada_ambiente sca
+                  JOIN {GOV}.iniciativa_aisn i ON i.id_subdominio_informacao=sca.id_subdominio_informacao
+                  JOIN {GOV}.iniciativa_camada_ambiente ica ON ica.id_iniciativa_aisn=i.id_iniciativa_aisn
+                       AND ica.id_camada_aisn=sca.id_camada_aisn AND ica.id_ambiente_aisn=sca.id_ambiente_aisn
+                  JOIN {GOV}.tabela_aisn t ON t.id_iniciativa_camada_ambiente=ica.id_iniciativa_camada_ambiente
+                 WHERE sca.id_subdominio_camada_ambiente=%s AND t.bol_atual=true
+                 ORDER BY t.nome_tabela""", (aid,))
+    if tipo == C.AT_DOMINIO:
+        return db.query(
+            f"""SELECT DISTINCT t.nome_catalogo, t.nome_schema, t.nome_tabela, t.desc_tabela
+                  FROM {GOV}.dominio_camada_ambiente dca
+                  JOIN {GOV}.subdominio_informacao s ON s.id_dominio_informacao=dca.id_dominio_informacao
+                  JOIN {GOV}.iniciativa_aisn i ON i.id_subdominio_informacao=s.id_subdominio_informacao
+                  JOIN {GOV}.iniciativa_camada_ambiente ica ON ica.id_iniciativa_aisn=i.id_iniciativa_aisn
+                       AND ica.id_camada_aisn=dca.id_camada_aisn AND ica.id_ambiente_aisn=dca.id_ambiente_aisn
+                  JOIN {GOV}.tabela_aisn t ON t.id_iniciativa_camada_ambiente=ica.id_iniciativa_camada_ambiente
+                 WHERE dca.id_dominio_camada_ambiente=%s AND t.bol_atual=true
+                 ORDER BY t.nome_tabela""", (aid,))
+    return []
+
+
 def rotulo_objeto(o):
     if o["tipo"] == "TABLE":
         return f'{o["catalogo"]}.{o["schema"]}.{o["tabela"]}'
@@ -87,6 +127,15 @@ def ativo_join(alias="a"):
       LEFT JOIN {GOV}.dominio_camada_ambiente axd_dca
              ON {a}.cod_tipo_ativo='{C.AT_DOMINIO}' AND axd_dca.id_dominio_camada_ambiente={a}.id_ativo_aisn AND axd_dca.bol_atual=true
       LEFT JOIN {GOV}.dominio_informacao axd_dom ON axd_dom.id_dominio_informacao=axd_dca.id_dominio_informacao
+      -- camada/ambiente por tipo (feedback do cliente: exibir camada e ambiente com nome)
+      LEFT JOIN {GOV}.camada_aisn   axi_cam ON axi_cam.id_camada_aisn=axi_ica.id_camada_aisn
+      LEFT JOIN {GOV}.ambiente_aisn axi_amb ON axi_amb.id_ambiente_aisn=axi_ica.id_ambiente_aisn
+      LEFT JOIN {GOV}.camada_aisn   axt_cam ON axt_cam.id_camada_aisn=axt_ica.id_camada_aisn
+      LEFT JOIN {GOV}.ambiente_aisn axt_amb ON axt_amb.id_ambiente_aisn=axt_ica.id_ambiente_aisn
+      LEFT JOIN {GOV}.camada_aisn   axs_cam ON axs_cam.id_camada_aisn=axs_sca.id_camada_aisn
+      LEFT JOIN {GOV}.ambiente_aisn axs_amb ON axs_amb.id_ambiente_aisn=axs_sca.id_ambiente_aisn
+      LEFT JOIN {GOV}.camada_aisn   axd_cam ON axd_cam.id_camada_aisn=axd_dca.id_camada_aisn
+      LEFT JOIN {GOV}.ambiente_aisn axd_amb ON axd_amb.id_ambiente_aisn=axd_dca.id_ambiente_aisn
     """
 
 
@@ -97,6 +146,9 @@ def ativo_cols(alias="a"):
       COALESCE(axi_sub.nome_subdominio, axt_sub.nome_subdominio, axs_sub.nome_subdominio) AS nome_subdominio,
       COALESCE(axi_dom.id_dominio_informacao, axt_dom.id_dominio_informacao, axs_dom.id_dominio_informacao, axd_dom.id_dominio_informacao) AS id_dominio_informacao,
       COALESCE(axi_sub.id_subdominio_informacao, axt_sub.id_subdominio_informacao, axs_sub.id_subdominio_informacao) AS id_subdominio_informacao,
+      COALESCE(axi_ini.nome_iniciativa, axt_ini.nome_iniciativa) AS nome_iniciativa,
+      COALESCE(axi_cam.nome_camada, axt_cam.nome_camada, axs_cam.nome_camada, axd_cam.nome_camada) AS nome_camada,
+      COALESCE(axi_amb.nome_ambiente, axt_amb.nome_ambiente, axs_amb.nome_ambiente, axd_amb.nome_ambiente) AS nome_ambiente,
       CASE {a}.cod_tipo_ativo
            WHEN '{C.AT_ICA}' THEN '{C.TIPO_ATIVO_LABEL[C.AT_ICA]}'
            WHEN '{C.AT_TABELA}' THEN '{C.TIPO_ATIVO_LABEL[C.AT_TABELA]}'

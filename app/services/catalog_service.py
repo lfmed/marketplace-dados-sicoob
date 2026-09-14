@@ -5,10 +5,18 @@ from app import db
 from app import constants as C
 from app.schemas import GOV, ACC
 from app.services import ativo_scope
-from app.services.ativo_scope import objetos_do_ativo, rotulo_objeto
+from app.services.ativo_scope import objetos_do_ativo, rotulo_objeto, tabelas_do_ativo
 
 TIPOS_ATIVO = C.TIPOS_ATIVO          # códigos numéricos, na ordem de exibição
 TIPO_LABEL = C.TIPO_ATIVO_LABEL      # código -> rótulo
+
+
+def _titulo(a):
+    """Título de exibição (feedback do cliente): para Iniciativa, mostra só o nome da
+    iniciativa (camada/ambiente viram tags); demais tipos mantêm o nome do ativo."""
+    if str(a.get("cod_tipo_ativo") or "") == C.AT_ICA and a.get("nome_iniciativa"):
+        return a["nome_iniciativa"]
+    return a.get("nome_ativo")
 
 
 def listar_dominios():
@@ -57,7 +65,10 @@ def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
                        WHEN '{C.AT_ICA}' THEN 2 ELSE 3 END,
                   nome_dominio, nome_subdominio, a.nome_ativo
     """
-    return db.query(sql, params)
+    rows = db.query(sql, params)
+    for r in rows:
+        r["titulo"] = _titulo(r)
+    return rows
 
 
 def ativo_por_id(id_ativo):
@@ -83,6 +94,8 @@ def detalhe_ativo(id_ativo):
     for o in objs:
         o["rotulo"] = rotulo_objeto(o)
     a["objetos"] = objs
+    a["tabelas"] = tabelas_do_ativo(a)   # tabelas contidas (nome + descrição) — feedback cliente
+    a["titulo"] = _titulo(a)
     return a
 
 

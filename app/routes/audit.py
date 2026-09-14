@@ -12,8 +12,3 @@ def auditoria():
     uid = u.get("id_usuario_aisn") if u else None
     linhas = audit_service.auditoria_do_owner(uid) if uid else []
     return render_template("auditoria.html", linhas=linhas)
-
-
-@bp.route("/resumo-dominio")
-def resumo():
-    return render_template("resumo_dominio.html", dominios=audit_service.resumo_dominio())
