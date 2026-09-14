@@ -36,8 +36,46 @@ def listar_subdominios(id_dominio=None):
         f"FROM {GOV}.subdominio_informacao WHERE bol_atual=true ORDER BY nome_subdominio")
 
 
-def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
-    """Cards do catálogo = ativos ({ACC}.ativo_aisn). Apenas com owner (RN-005) e elegíveis."""
+def listar_grupos_ativos(id_dominio=None, id_subdominio=None, busca=None):
+    """Catálogo agrupado por GRUPO ATIVO (nome_grupo_ativo + desc_grupo_ativo). Cada grupo
+    reúne vários ativos e pertence a UM domínio/subdomínio (D-cliente). Só grupos com pelo
+    menos um ativo elegível e com owner. NÃO é o grupo de acesso (esse fica em grupo_acesso)."""
+    where = ["a.bol_atual=true", "a.bol_excluido=false", "a.bol_elegivel_acesso=true",
+             "a.nome_grupo_ativo IS NOT NULL",
+             f"EXISTS (SELECT 1 FROM {ACC}.ativo_proprietario p "
+             f"        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true)"]
+    params = []
+    if id_dominio:
+        where.append(f"{ativo_scope.dominio_id_expr()}=%s"); params.append(id_dominio)
+    if id_subdominio:
+        where.append(f"{ativo_scope.subdominio_id_expr()}=%s"); params.append(id_subdominio)
+    if busca:
+        where.append("(lower(a.nome_grupo_ativo) LIKE %s OR lower(a.desc_grupo_ativo) LIKE %s)")
+        b = f"%{busca.lower()}%"; params += [b, b]
+    sql = f"""
+        WITH ativos AS (
+          SELECT a.nome_grupo_ativo, a.desc_grupo_ativo, {ativo_scope.ativo_cols("a")}
+            FROM {ACC}.ativo_aisn a
+            {ativo_scope.ativo_join("a")}
+           WHERE {' AND '.join(where)}
+        )
+        SELECT nome_grupo_ativo,
+               max(desc_grupo_ativo)         AS desc_grupo_ativo,
+               max(nome_dominio)             AS nome_dominio,
+               max(nome_subdominio)          AS nome_subdominio,
+               max(id_dominio_informacao)    AS id_dominio_informacao,
+               max(id_subdominio_informacao) AS id_subdominio_informacao,
+               count(*)                      AS qtd_ativos
+          FROM ativos
+         GROUP BY nome_grupo_ativo
+         ORDER BY max(nome_dominio), max(nome_subdominio), nome_grupo_ativo
+    """
+    return db.query(sql, params)
+
+
+def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None, grupo=None):
+    """Cards de ativos ({ACC}.ativo_aisn). Apenas com owner (RN-005) e elegíveis.
+    `grupo` filtra pelos ativos de um grupo ativo (nome_grupo_ativo) — usado no drill-down."""
     where = ["a.bol_atual=true", "a.bol_excluido=false", "a.bol_elegivel_acesso=true",
              f"EXISTS (SELECT 1 FROM {ACC}.ativo_proprietario p "
              f"        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true)"]
@@ -48,12 +86,14 @@ def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
         where.append(f"{ativo_scope.subdominio_id_expr()}=%s"); params.append(id_subdominio)
     if tipo:
         where.append("a.cod_tipo_ativo=%s"); params.append(tipo)
+    if grupo:
+        where.append("a.nome_grupo_ativo=%s"); params.append(grupo)
     if busca:
         where.append("(lower(a.nome_ativo) LIKE %s OR lower(a.desc_ativo) LIKE %s)")
         b = f"%{busca.lower()}%"; params += [b, b]
     sql = f"""
         SELECT a.id_ativo_aisn, a.cod_tipo_ativo, a.nome_ativo, a.desc_ativo,
-               a.nome_grupo_ativo AS nome_grupo, {ativo_scope.ativo_cols("a")},
+               a.nome_grupo_ativo, a.desc_grupo_ativo, {ativo_scope.ativo_cols("a")},
                (SELECT string_agg(DISTINCT u.nome_completo, ', ')
                   FROM {ACC}.ativo_proprietario p
                   JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
@@ -73,7 +113,7 @@ def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None):
 
 def ativo_por_id(id_ativo):
     return db.query_one(
-        f"""SELECT a.*, a.nome_grupo_ativo AS nome_grupo, {ativo_scope.ativo_cols("a")}
+        f"""SELECT a.*, {ativo_scope.ativo_cols("a")}
              FROM {ACC}.ativo_aisn a
              {ativo_scope.ativo_join("a")}
             WHERE a.id_ativo_aisn=%s""", (id_ativo,))

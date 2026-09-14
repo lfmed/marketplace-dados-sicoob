@@ -20,9 +20,6 @@
   {% for o in ativo.owners %}
     <span class="badge b-info">👤 {{ o.nome_completo }}{% if o.bol_principal %} · principal{% endif %}</span>
   {% else %}<span class="muted">Sem owner.</span>{% endfor %}
-  {% if ativo.nome_grupo %}
-  <div style="margin-top:10px" class="muted">Grupo do ativo (liberação por grupo): <code class="schip">{{ ativo.nome_grupo }}</code></div>
-  {% endif %}
 </div>
 
 <div class="panel">

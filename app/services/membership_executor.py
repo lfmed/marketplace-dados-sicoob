@@ -1,8 +1,9 @@
 """Executor de CONCESSÃO/REVOGAÇÃO por ASSOCIAÇÃO A GRUPO (modelo oficial do cliente).
 
-Concede incluindo o beneficiário no GRUPO DO ATIVO (`ativo_aisn.nome_grupo_ativo`), que
-detém o privilégio no Unity Catalog:
-  - NOMINAL -> inclui o USUÁRIO (por e-mail/SP) como membro do grupo do ativo;
+Concede incluindo o beneficiário no GRUPO DE ACESSO do ativo (`grupo_acesso`, resolvido via
+`ativo_aisn.id_grupo_acesso`), que detém o privilégio no Unity Catalog. (O campo
+`nome_grupo_ativo` é só rótulo de agrupamento de ativos p/ exibição — NÃO é o grupo de acesso.)
+  - NOMINAL -> inclui o USUÁRIO (por e-mail/SP) como membro do grupo de acesso;
   - GRUPO   -> inclui o GRUPO exploratório do usuário (grupo aninhado).
 Revogar = remover a associação. Idempotente (RN-041).
 
@@ -19,10 +20,14 @@ from app.services import grant_executor
 
 
 def _grupo_do_ativo(id_ativo):
-    # nome_grupo_ativo está direto na ativo_aisn (modelo oficial)
+    # O grupo que LIBERA o acesso é o grupo_acesso (via id_grupo_acesso) — é ele que detém
+    # o privilégio no UC. O campo nome_grupo_ativo NÃO é o grupo de acesso: é só um rótulo de
+    # agrupamento de ativos para exibição (correção do cliente). Nunca usar nome_grupo_ativo aqui.
     return db.query_one(
-        f"""SELECT id_grupo_acesso, nome_grupo_ativo AS nome_grupo
-             FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s""", (id_ativo,))
+        f"""SELECT a.id_grupo_acesso, g.nome_grupo
+             FROM {ACC}.ativo_aisn a
+             JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
+            WHERE a.id_ativo_aisn=%s""", (id_ativo,))
 
 
 def _beneficiario(acesso):
@@ -83,13 +88,13 @@ def executar(operacao, acesso):
     grupo = _grupo_do_ativo(acesso.get("id_ativo_aisn"))
     if not grupo or not grupo.get("nome_grupo"):
         return False, "", "ativo sem grupo de acesso definido (nome_grupo_ativo)"
-    nome_grupo_ativo = grupo["nome_grupo"]
+    nome_grupo_acesso = grupo["nome_grupo"]
     tipo_membro, chave = _beneficiario(acesso)
     if not chave:
         return False, "", "beneficiário sem principal resolvido (usuário/grupo)"
 
     acao = "ADICIONAR" if operacao == C.OP_CONCESSAO else "REMOVER"
-    linhas = [f"-- {acao} membro {tipo_membro}:{chave} <-> grupo do ativo {nome_grupo_ativo}"]
+    linhas = [f"-- {acao} membro {tipo_membro}:{chave} <-> grupo de acesso {nome_grupo_acesso}"]
 
     if not config.GRANT_EXECUTE_REAL:
         return True, "\n".join(linhas) + "\n-- [SIMULADO: GRANT_EXECUTE_REAL=false]", None
@@ -98,13 +103,13 @@ def executar(operacao, acesso):
     from databricks.sdk.service import iam
     w = get_groups_client()  # AccountClient (produção) ou WorkspaceClient (dev)
     try:
-        gid = _ensure_group(w, nome_grupo_ativo)
+        gid = _ensure_group(w, nome_grupo_acesso)
         if operacao == C.OP_CONCESSAO:
             if config.PROVISION_GROUP_GRANT:  # dev: garante o GRANT do grupo (prod: Motor faz)
                 ativo = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s",
                                      (acesso["id_ativo_aisn"],))
                 ok_p, cmds_p, err_p = grant_executor.provisionar_ativo(
-                    ativo, nome_grupo_ativo, acesso.get("cod_tipo_acesso"))
+                    ativo, nome_grupo_acesso, acesso.get("cod_tipo_acesso"))
                 linhas += [f"-- provisionamento do grupo: {'ok' if ok_p else 'aviso: ' + (err_p or '')}"]
                 linhas += cmds_p
             mid = _resolver_membro(w, tipo_membro, chave)

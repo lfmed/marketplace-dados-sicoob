@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ grupo }} · Marketplace{% endblock %}
+{% block content %}
+<a class="muted" href="{{ url_for('catalog.catalogo') }}">&larr; Voltar aos grupos</a>
+
+<div class="banner" style="margin-top:10px">
+  <h2>📦 {{ grupo }}</h2>
+  {% if desc %}<p>{{ desc }}</p>{% endif %}
+</div>
+
+<div class="count">{{ total }} ativo(s) neste grupo · selecione um para solicitar acesso</div>
+
+<div class="grid">
+  {% for a in ativos %}
+  <div class="card">
+    <div class="tags">
+      <span class="pill lvl">{{ a.tipo_label }}</span>
+      {% if a.nome_camada %}<span class="pill cam">{{ a.nome_camada }}</span>{% endif %}
+      {% if a.nome_ambiente %}<span class="pill amb">{{ a.nome_ambiente }}</span>{% endif %}
+    </div>
+    <h3>{{ a.titulo or a.nome_ativo }}</h3>
+    <div class="desc">{{ a.desc_ativo }}</div>
+    <div class="meta"><span>👤 {{ a.owners or '—' }}</span></div>
+    <a class="btn block" href="{{ url_for('catalog.ativo', id_ativo=a.id_ativo_aisn) }}">Ver detalhes &amp; solicitar</a>
+  </div>
+  {% else %}
+  <p class="muted">Nenhum ativo disponível neste grupo.</p>
+  {% endfor %}
+</div>
+{% endblock %}

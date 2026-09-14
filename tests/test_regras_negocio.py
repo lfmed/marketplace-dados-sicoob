@@ -65,7 +65,7 @@ def test_rn005_catalogo_driver_ativo_com_breadcrumb(conectado):
     ica = next(a for a in ativos if a["id_ativo_aisn"] == ICA_ATIVO)
     assert ica["nome_dominio"] == "Canais e Experiência"
     assert ica["tipo_label"] == C.TIPO_ATIVO_LABEL[C.AT_ICA]
-    assert ica["nome_grupo"]  # nome_grupo_ativo
+    assert ica["nome_grupo_ativo"]  # rótulo de agrupamento de ativos (não é o grupo de acesso)
 
 
 def test_catalogo_filtra_por_dominio_derivado(conectado):

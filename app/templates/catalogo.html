@@ -3,7 +3,7 @@
 {% block content %}
 <div class="banner">
   <h2>📚 Catálogo de Produtos de Dados</h2>
-  <p>Explore os ativos de dados e solicite acesso{% if usuario %} · você está como {{ usuario.nome_completo }}{% endif %}</p>
+  <p>Explore os grupos de ativos e solicite acesso{% if usuario %} · você está como {{ usuario.nome_completo }}{% endif %}</p>
 </div>
 
 <form class="filters" method="get" action="{{ url_for('catalog.catalogo') }}">
@@ -27,34 +27,28 @@
   </div>
   <div class="field">
     <label>Buscar</label>
-    <input type="text" name="busca" value="{{ f_busca or '' }}" placeholder="Nome ou descrição do ativo">
+    <input type="text" name="busca" value="{{ f_busca or '' }}" placeholder="Nome ou descrição do grupo">
   </div>
   <button class="btn" type="submit">Filtrar</button>
   <a class="btn ghost" href="{{ url_for('catalog.catalogo') }}">Limpar filtros</a>
 </form>
 
-<div class="count">{{ total }} ativo(s) de dados encontrado(s)</div>
+<div class="count">{{ total }} grupo(s) de ativos encontrado(s)</div>
 
 <div class="grid">
-  {% for a in ativos %}
+  {% for g in grupos %}
   <div class="card">
     <div class="tags">
-      <span class="pill lvl">{{ a.tipo_label }}</span>
-      {% if a.nome_dominio %}<span class="pill dom">{{ a.nome_dominio }}</span>{% endif %}
-      {% if a.nome_subdominio %}<span class="pill sub">{{ a.nome_subdominio }}</span>{% endif %}
-      {% if a.nome_camada %}<span class="pill cam">{{ a.nome_camada }}</span>{% endif %}
-      {% if a.nome_ambiente %}<span class="pill amb">{{ a.nome_ambiente }}</span>{% endif %}
+      {% if g.nome_dominio %}<span class="pill dom">{{ g.nome_dominio }}</span>{% endif %}
+      {% if g.nome_subdominio %}<span class="pill sub">{{ g.nome_subdominio }}</span>{% endif %}
     </div>
-    <h3>{{ a.titulo or a.nome_ativo }}</h3>
-    <div class="desc">{{ a.desc_ativo }}</div>
-    <div class="meta">
-      <span>👤 {{ a.owners or '—' }}</span>
-      {% if a.nome_grupo %}<span>👥 {{ a.nome_grupo }}</span>{% endif %}
-    </div>
-    <a class="btn block" href="{{ url_for('catalog.ativo', id_ativo=a.id_ativo_aisn) }}">Ver detalhes &amp; solicitar</a>
+    <h3>{{ g.nome_grupo_ativo }}</h3>
+    <div class="desc">{{ g.desc_grupo_ativo }}</div>
+    <div class="meta"><span>📦 {{ g.qtd_ativos }} ativo(s)</span></div>
+    <a class="btn block" href="{{ url_for('catalog.catalogo', grupo=g.nome_grupo_ativo) }}">Ver ativos do grupo</a>
   </div>
   {% else %}
-  <p class="muted">Nenhum ativo encontrado com os filtros atuais.</p>
+  <p class="muted">Nenhum grupo de ativos encontrado com os filtros atuais.</p>
   {% endfor %}
 </div>
 {% endblock %}
