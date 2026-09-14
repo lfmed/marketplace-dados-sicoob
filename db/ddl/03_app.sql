@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS {APP}.acesso (
     datahora_efetivacao          TIMESTAMP,
     datahora_revogacao           TIMESTAMP,
     CONSTRAINT ck_acesso_status CHECK (cod_status_acesso IN (
-        'APROVADO_AGUARDANDO_EFETIVACAO','EFETIVADO','ERRO_EFETIVACAO','REVOGADO'))
+        'APROVADO_AGUARDANDO_EFETIVACAO','EFETIVADO','ERRO_EFETIVACAO','REVOGADO','CANCELADO'))
 );
 
 -- ---------- Execução técnica (associação a grupo, idempotente RN-041) — RF-062..080 ----------
@@ -118,3 +118,9 @@ CREATE INDEX IF NOT EXISTS idx_acesso_status ON {APP}.acesso(cod_status_acesso);
 CREATE INDEX IF NOT EXISTS idx_execucao_acesso ON {APP}.execucao_tecnica(id_acesso);
 CREATE INDEX IF NOT EXISTS idx_evento_solicitacao ON {APP}.evento_ciclo_vida(id_solicitacao_acesso);
 CREATE INDEX IF NOT EXISTS idx_evento_acesso ON {APP}.evento_ciclo_vida(id_acesso);
+
+-- Migrações idempotentes (aplicadas no boot; CREATE TABLE IF NOT EXISTS não altera tabela já existente).
+-- Adiciona o estado CANCELADO ao acesso (solicitante cancela após erro de efetivação).
+ALTER TABLE {APP}.acesso DROP CONSTRAINT IF EXISTS ck_acesso_status;
+ALTER TABLE {APP}.acesso ADD CONSTRAINT ck_acesso_status CHECK (cod_status_acesso IN (
+    'APROVADO_AGUARDANDO_EFETIVACAO','EFETIVADO','ERRO_EFETIVACAO','REVOGADO','CANCELADO'));

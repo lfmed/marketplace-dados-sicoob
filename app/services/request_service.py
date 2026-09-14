@@ -207,7 +207,9 @@ def detalhe(id_solicitacao):
 
 
 def cancelar(id_solicitacao, id_usuario):
-    """RN-011: solicitante cancela enquanto elegível."""
+    """Solicitante cancela a própria solicitação: (a) RN-011, enquanto elegível
+    (pendente/autorizada); ou (b) quando a efetivação FALHOU (acesso ERRO_EFETIVACAO) —
+    nesse caso o acesso vira CANCELADO e fica logado (auditoria)."""
     s = db.query_one(
         f"SELECT * FROM {APP}.solicitacao_acesso WHERE id_solicitacao_acesso=%s",
         (id_solicitacao,))
@@ -215,7 +217,13 @@ def cancelar(id_solicitacao, id_usuario):
         raise RegraNegocioError("Solicitação não encontrada.")
     if s["id_usuario_solicitante"] != id_usuario:
         raise RegraNegocioError("Somente o solicitante pode cancelar a solicitação.")
-    if s["cod_status_solicitacao"] not in C.STATUS_SOLICITACAO_CANCELAVEL:
+    ac = db.query_one(
+        f"""SELECT id_acesso, cod_status_acesso FROM {APP}.acesso
+             WHERE id_solicitacao_acesso=%s ORDER BY datahora_aprovacao DESC LIMIT 1""",
+        (id_solicitacao,))
+    cancelavel = s["cod_status_solicitacao"] in C.STATUS_SOLICITACAO_CANCELAVEL
+    erro_efetivacao = bool(ac) and ac["cod_status_acesso"] == C.A_ERRO_EFETIVACAO
+    if not (cancelavel or erro_efetivacao):
         raise RegraNegocioError("Solicitação não está em estado cancelável.")
     with db.get_conn(autocommit=False) as conn:
         with conn.cursor() as cur:
@@ -224,6 +232,19 @@ def cancelar(id_solicitacao, id_usuario):
                       SET cod_status_solicitacao=%s, datahora_atualizacao=now()
                     WHERE id_solicitacao_acesso=%s""",
                 (C.S_CANCELADA, id_solicitacao))
-            audit_service.registrar(cur, C.EV_CANCELADA, id_solicitacao=id_solicitacao,
-                                    id_usuario=id_usuario)
+            if erro_efetivacao:
+                # acesso que falhou vira CANCELADO (fica logado); evita retry do worker
+                cur.execute(
+                    f"""UPDATE {APP}.acesso SET cod_status_acesso=%s WHERE id_acesso=%s""",
+                    (C.A_CANCELADO, ac["id_acesso"]))
+                cur.execute(
+                    f"""UPDATE {APP}.execucao_tecnica
+                          SET cod_status_execucao=%s, desc_erro='cancelado pelo solicitante',
+                              datahora_fim=now()
+                        WHERE id_acesso=%s AND cod_status_execucao=%s""",
+                    (C.E_ERRO, ac["id_acesso"], C.E_PENDENTE))
+            audit_service.registrar(
+                cur, C.EV_CANCELADA, id_solicitacao=id_solicitacao,
+                id_acesso=(ac["id_acesso"] if erro_efetivacao else None), id_usuario=id_usuario,
+                detalhe=("cancelado pelo solicitante após erro de efetivação" if erro_efetivacao else None))
         conn.commit()

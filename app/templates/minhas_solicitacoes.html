@@ -14,7 +14,14 @@
       <td>{{ m.badge_sol(s.cod_status_solicitacao) }}</td>
       <td>{{ m.badge_ac(s.cod_status_acesso) }}</td>
       <td class="muted">{{ s.datahora_criacao.strftime('%d/%m %H:%M') if s.datahora_criacao }}</td>
-      <td><a class="btn small ghost" href="{{ url_for('requests.detalhe', id_solicitacao=s.id_solicitacao_acesso) }}">Detalhes</a></td>
+      <td>
+        <a class="btn small ghost" href="{{ url_for('requests.detalhe', id_solicitacao=s.id_solicitacao_acesso) }}">Detalhes</a>
+        {% if s.cod_status_solicitacao in [S.S_PENDENTE_AUTORIZACAO, S.S_AUTORIZADA] or s.cod_status_acesso == S.A_ERRO_EFETIVACAO %}
+        <form method="post" action="{{ url_for('requests.cancelar', id_solicitacao=s.id_solicitacao_acesso) }}" style="display:inline">
+          <button class="btn small danger" type="submit">Cancelar</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% else %}
     <tr><td colspan="7" class="muted">Você ainda não fez solicitações. Explore o <a href="{{ url_for('catalog.catalogo') }}">catálogo</a>.</td></tr>

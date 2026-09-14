@@ -25,12 +25,14 @@ A_AGUARDANDO_EFETIVACAO = "APROVADO_AGUARDANDO_EFETIVACAO"
 A_EFETIVADO = "EFETIVADO"
 A_ERRO_EFETIVACAO = "ERRO_EFETIVACAO"
 A_REVOGADO = "REVOGADO"
+A_CANCELADO = "CANCELADO"  # solicitante cancelou após erro de efetivação (fica logado)
 
 STATUS_ACESSO_LABEL = {
     A_AGUARDANDO_EFETIVACAO: "Aprovado · aguardando efetivação",
     A_EFETIVADO: "Efetivado",
     A_ERRO_EFETIVACAO: "Erro na efetivação",
     A_REVOGADO: "Revogado",
+    A_CANCELADO: "Cancelado pelo solicitante",
 }
 
 # Resultado de decisão

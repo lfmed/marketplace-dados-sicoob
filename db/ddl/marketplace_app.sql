@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS marketplace_app.acesso (
     datahora_efetivacao          TIMESTAMP,
     datahora_revogacao           TIMESTAMP,
     CONSTRAINT ck_acesso_status CHECK (cod_status_acesso IN (
-        'APROVADO_AGUARDANDO_EFETIVACAO','EFETIVADO','ERRO_EFETIVACAO','REVOGADO'))
+        'APROVADO_AGUARDANDO_EFETIVACAO','EFETIVADO','ERRO_EFETIVACAO','REVOGADO','CANCELADO'))
 );
 
 -- ---------- Execução técnica (associação a grupo, idempotente RN-041) — RF-062..080 ----------
@@ -128,3 +128,9 @@ CREATE INDEX IF NOT EXISTS idx_acesso_status ON marketplace_app.acesso(cod_statu
 CREATE INDEX IF NOT EXISTS idx_execucao_acesso ON marketplace_app.execucao_tecnica(id_acesso);
 CREATE INDEX IF NOT EXISTS idx_evento_solicitacao ON marketplace_app.evento_ciclo_vida(id_solicitacao_acesso);
 CREATE INDEX IF NOT EXISTS idx_evento_acesso ON marketplace_app.evento_ciclo_vida(id_acesso);
+
+-- Migrações idempotentes (aplicadas no boot; CREATE TABLE IF NOT EXISTS não altera tabela já existente).
+-- Adiciona o estado CANCELADO ao acesso (solicitante cancela após erro de efetivação).
+ALTER TABLE marketplace_app.acesso DROP CONSTRAINT IF EXISTS ck_acesso_status;
+ALTER TABLE marketplace_app.acesso ADD CONSTRAINT ck_acesso_status CHECK (cod_status_acesso IN (
+    'APROVADO_AGUARDANDO_EFETIVACAO','EFETIVADO','ERRO_EFETIVACAO','REVOGADO','CANCELADO'));
