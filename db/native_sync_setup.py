@@ -72,19 +72,24 @@ def _delete_synced_table(dst):
     print(f"  ⚠ {dst} ainda aparece após o delete; seguindo mesmo assim")
 
 
-def create_synced_tables(pk_overrides=None, recreate=False):
+def create_synced_tables(pk_overrides=None, recreate=False, policy_overrides=None):
     # Origem Delta do Motor: catálogo parametrizável (cliente = plataforma) + os schemas
     # governanca/gestao_acesso. Destino: mesmos schemas no catálogo UC do Lakebase.
     # pk_overrides: dict {nome_tabela -> [colunas de PK]} para o cliente ajustar a chave
     # primária de cada tabela sem editar o modelo; ausente/vazio => usa o padrão do modelo.
+    # policy_overrides: dict {nome_tabela -> 'SNAPSHOT'|'TRIGGERED'|'CONTINUOUS'} p/ definir a
+    # política de sync por tabela; ausente => usa a global SYNC_SCHEDULING_POLICY (SCHED).
+    # TRIGGERED/CONTINUOUS exigem Change Data Feed (CDF) na tabela Delta de origem.
     # recreate: se True, dropa e recria synced tables que já existem (p/ aplicar nova PK/policy);
     # se False (padrão), pula as que já existem.
     pk_overrides = pk_overrides or {}
+    policy_overrides = policy_overrides or {}
     cat = config.GOV_CATALOG
     # schema de checkpoints do pipeline
     run_sql(f"CREATE SCHEMA IF NOT EXISTS {cat}.{CKPT_SCHEMA}")
     for schema, tabela, cols, pk in GOV_TABLES:
         pk_use = pk_overrides.get(tabela, pk)
+        sched_use = policy_overrides.get(tabela, SCHED)
         src = f"{cat}.{schema}.{tabela}"
         dst = f"{LAKEBASE_UC_CATALOG}.{schema}.{tabela}"
         exists = True
@@ -105,17 +110,17 @@ def create_synced_tables(pk_overrides=None, recreate=False):
         body = {"name": f"synced_tables/{dst}",
                 "spec": {"source_table_full_name": src,
                          "primary_key_columns": pk_use,
-                         "scheduling_policy": SCHED,
+                         "scheduling_policy": sched_use,
                          "branch": branch_resource(),
                          "postgres_database": config.LAKEBASE_DBNAME,
                          "create_database_objects_if_missing": True,
                          "new_pipeline_spec": {"storage_catalog": cat,
                                                "storage_schema": CKPT_SCHEMA}}}
         _api("POST", f"/api/2.0/postgres/synced_tables?synced_table_id={dst}", body)
-        print(f"  synced table criada: {dst}  (policy={SCHED}, pk={pk_use})")
+        print(f"  synced table criada: {dst}  (policy={sched_use}, pk={pk_use})")
 
 
-def main(pk_overrides=None, recreate=False):
+def main(pk_overrides=None, recreate=False, policy_overrides=None):
     print("== Config resolvida ==")
     print(f"  LAKEBASE_ENDPOINT   = {config.LAKEBASE_ENDPOINT!r}")
     print(f"  LAKEBASE_DBNAME     = {config.LAKEBASE_DBNAME!r}")
@@ -126,7 +131,7 @@ def main(pk_overrides=None, recreate=False):
     print("== Registrando banco Lakebase no UC ==")
     register_catalog()
     print(f"== Criando synced tables ({', '.join(DELTA_SCHEMAS)}) — recreate={recreate} ==")
-    create_synced_tables(pk_overrides, recreate=recreate)
+    create_synced_tables(pk_overrides, recreate=recreate, policy_overrides=policy_overrides)
     print("Synced tables nativas configuradas.")
 
 

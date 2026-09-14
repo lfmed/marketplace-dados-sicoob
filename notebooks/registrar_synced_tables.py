@@ -61,8 +61,10 @@ os.environ["LAKEBASE_UC_CATALOG"] = "lakebase_marketplace"
 # --- Warehouse para ler o Delta ---
 os.environ["DATABRICKS_WAREHOUSE_ID"] = "<warehouse_id_do_cliente>"
 
-# Política de sync das synced tables: SNAPSHOT (uma carga), TRIGGERED (sob demanda) ou
-# CONTINUOUS (streaming). Governança muda pouco -> SNAPSHOT/TRIGGERED costuma bastar.
+# Política de sync GLOBAL (padrão de TODAS as tabelas — ajuste por tabela na seção 2b):
+#   SNAPSHOT   = cópia periódica completa; NÃO exige Change Data Feed (CDF) na origem.
+#   TRIGGERED  = atualização incremental sob demanda; EXIGE CDF na tabela Delta de origem.
+#   CONTINUOUS = streaming contínuo; EXIGE CDF na origem.
 os.environ["SYNC_SCHEDULING_POLICY"] = "TRIGGERED"
 
 # Recriar synced tables que JÁ existem? True dropa+recria (para aplicar nova PK ou policy);
@@ -117,6 +119,23 @@ print(f"{len(PRIMARY_KEYS)} tabelas com PK definida")
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## 2b. Política de sync POR TABELA — **opcional**
+# MAGIC Deixe **vazio** para todas usarem a política global (`SYNC_SCHEDULING_POLICY`).
+# MAGIC Preencha só as exceções. Valores: **`SNAPSHOT`** (sem CDF) · **`TRIGGERED`**/**`CONTINUOUS`**
+# MAGIC (exigem **CDF** habilitado na tabela Delta de origem: `delta.enableChangeDataFeed=true`).
+
+# COMMAND ----------
+
+SYNC_POLICY = {
+    # "usuario_aisn": "SNAPSHOT",     # ex.: muda pouco -> carga completa (sem CDF)
+    # "ativo_aisn":   "TRIGGERED",    # ex.: muda mais  -> incremental (exige CDF)
+}
+print(f"{len(SYNC_POLICY)} tabela(s) com política específica; demais usam "
+      f"{os.environ['SYNC_SCHEDULING_POLICY']}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## 3. Registrar o catálogo Lakebase + criar as synced tables
 # MAGIC Cria uma synced table por tabela do Motor (governanca + gestao_acesso). Idempotente.
 # MAGIC Usa as PKs definidas acima (`pk_overrides`).
@@ -125,7 +144,7 @@ print(f"{len(PRIMARY_KEYS)} tabelas com PK definida")
 
 from db.native_sync_setup import main as registrar_synced_tables
 
-registrar_synced_tables(pk_overrides=PRIMARY_KEYS, recreate=RECREATE)
+registrar_synced_tables(pk_overrides=PRIMARY_KEYS, recreate=RECREATE, policy_overrides=SYNC_POLICY)
 
 # COMMAND ----------
 
