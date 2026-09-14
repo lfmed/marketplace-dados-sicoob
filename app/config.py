@@ -65,6 +65,11 @@ class Config:
     # --- Identidade / demo ---
     # Em prod: identidade via SSO (header X-Forwarded-Email). Em dev: proxy "atuar como".
     ENABLE_PROXY = _b(os.getenv("APP_ENABLE_PROXY"), True)
+    # Whitelist de e-mails que podem usar o proxy "atuar como" (além de ENABLE_PROXY).
+    # Lista separada por vírgula em APP_PROXY_ALLOWED_EMAILS (config do app.yaml).
+    # Vazia => liberado p/ todos (dev); definida => só esses e-mails (checado no SSO real).
+    PROXY_ALLOWED_EMAILS = {e.strip().lower() for e in
+                            os.getenv("APP_PROXY_ALLOWED_EMAILS", "").split(",") if e.strip()}
     # E-mail usado quando não há header de SSO (dev local)
     DEV_FALLBACK_EMAIL = os.getenv("DEV_FALLBACK_EMAIL", "leandro.medeiros@databricks.com")
 
@@ -73,8 +78,10 @@ class Config:
     GRANT_EXECUTE_REAL = _b(os.getenv("GRANT_EXECUTE_REAL"), True)
     # Provisionamento do GRANT do grupo do ativo nos objetos. Em PRODUÇÃO o grupo já vem
     # concedido pelo Motor/governança -> false (o app só gerencia membership). Em dev
-    # (sem Motor) -> true para a demo ter efeito. Default true (dev); cliente define false.
-    PROVISION_GROUP_GRANT = _b(os.getenv("PROVISION_GROUP_GRANT"), True)
+    # (sem Motor) -> true para a demo ter efeito. Default AGORA acompanha o escopo: com
+    # GROUPS_SCOPE=account (produção) default=false (não tenta GRANT na workspace); em
+    # workspace/dev default=true. O env APP explícito (PROVISION_GROUP_GRANT) sempre vence.
+    PROVISION_GROUP_GRANT = _b(os.getenv("PROVISION_GROUP_GRANT"), GROUPS_SCOPE != "account")
     # SLA de efetivação (RN-030): 30 minutos
     EFETIVACAO_SLA_MIN = int(os.getenv("EFETIVACAO_SLA_MIN", "30"))
 

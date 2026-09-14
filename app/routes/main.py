@@ -1,7 +1,6 @@
 from flask import Blueprint, redirect, url_for, request, flash
 
 from app import identity
-from app.config import config
 
 bp = Blueprint("main", __name__)
 
@@ -18,8 +17,8 @@ def health():
 
 @bp.route("/proxy", methods=["POST"])
 def proxy():
-    """Troca o usuário atuante (proxy) — apenas em modo dev/demo (D-005)."""
-    if config.ENABLE_PROXY:
+    """Troca o usuário atuante (proxy) — só se liberado para o usuário real (D-005)."""
+    if identity.proxy_liberado():
         uid = request.form.get("proxy_user_id")
         if uid:
             identity.definir_proxy(uid)

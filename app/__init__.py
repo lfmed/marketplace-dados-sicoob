@@ -33,11 +33,12 @@ def create_app():
             papeis["gestor"] = _e_gestor(uid)
             papeis["owner"] = _e_owner(uid)
             grupos = request_service.grupos_do_usuario(uid)
+        proxy_ok = identity.proxy_liberado()
         return dict(usuario=u, papeis=papeis, meus_grupos=grupos,
-                    enable_proxy=config.ENABLE_PROXY,
+                    enable_proxy=proxy_ok,
                     S=C, STATUS_SOL=C.STATUS_SOLICITACAO_LABEL,
                     STATUS_AC=C.STATUS_ACESSO_LABEL,
-                    personas=(identity.listar_personas() if config.ENABLE_PROXY else []))
+                    personas=(identity.listar_personas() if proxy_ok else []))
 
     # Provisionamento na subida (deploy sem CLI): cria o schema de workflow no Lakebase e
     # loga em detalhe cada ponto provisionado/verificado. Idempotente; nunca derruba a app.

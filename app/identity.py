@@ -41,18 +41,35 @@ def listar_personas():
     )
 
 
+def _email_real():
+    """E-mail do usuário REAL (SSO), ignorando o proxy — base da whitelist de proxy.
+    Em dev (sem header), cai no DEV_FALLBACK_EMAIL quando ENABLE_PROXY."""
+    return _email_do_sso() or (config.DEV_FALLBACK_EMAIL if config.ENABLE_PROXY else None)
+
+
+def proxy_liberado():
+    """O proxy 'atuar como' está disponível para o usuário REAL? Exige ENABLE_PROXY e, se
+    houver whitelist (APP_PROXY_ALLOWED_EMAILS), o e-mail real do SSO estar nela. Sem lista
+    => liberado p/ todos (dev). Gateia pelo SSO, não pela persona assumida (não burla)."""
+    if not config.ENABLE_PROXY:
+        return False
+    if not config.PROXY_ALLOWED_EMAILS:
+        return True
+    return (_email_real() or "").strip().lower() in config.PROXY_ALLOWED_EMAILS
+
+
 def usuario_atual():
     """Resolve o usuário corrente.
 
-    1) Se há proxy ativo na sessão (dev), usa-o.
+    1) Se há proxy ativo na sessão E liberado p/ o usuário real, usa-o.
     2) Senão, usa o e-mail do SSO.
     3) Fallback dev: DEV_FALLBACK_EMAIL.
     """
-    if config.ENABLE_PROXY and session.get("proxy_user_id"):
+    if proxy_liberado() and session.get("proxy_user_id"):
         u = usuario_por_id(session["proxy_user_id"])
         if u:
             return u
-    email = _email_do_sso() or (config.DEV_FALLBACK_EMAIL if config.ENABLE_PROXY else None)
+    email = _email_real()
     u = usuario_por_email(email)
     if u:
         return u
