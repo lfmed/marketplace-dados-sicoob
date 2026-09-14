@@ -73,10 +73,16 @@ def create_synced_tables():
             continue
         except Exception:
             pass
+        # 'branch' é obrigatório no spec da synced table: é o que liga a synced table ao
+        # endpoint do Lakebase. Sem ele o servidor devolve " is not a valid endpoint id".
+        # 'postgres_database' é explícito (validado ponta a ponta): funciona no catálogo
+        # registrado (mesmo valor que o catálogo aponta) e também no catálogo padrão.
         body = {"name": f"synced_tables/{dst}",
                 "spec": {"source_table_full_name": src,
                          "primary_key_columns": pk,
                          "scheduling_policy": SCHED,
+                         "branch": branch_resource(),
+                         "postgres_database": config.LAKEBASE_DBNAME,
                          "create_database_objects_if_missing": True,
                          "new_pipeline_spec": {"storage_catalog": cat,
                                                "storage_schema": CKPT_SCHEMA}}}
