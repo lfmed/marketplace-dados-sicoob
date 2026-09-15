@@ -20,7 +20,8 @@ def usuario_por_email(email):
     if not email:
         return None
     return db.query_one(
-        f"SELECT * FROM {GOV}.usuario_aisn WHERE lower(desc_email)=lower(%s) AND bol_atual=true",
+        f"SELECT * FROM {GOV}.usuario_aisn WHERE lower(desc_email)=lower(%s) "
+        f"AND bol_atual=true AND bol_excluido=false",
         (email,),
     )
 
@@ -29,7 +30,8 @@ def usuario_por_id(uid):
     if not uid:
         return None
     return db.query_one(
-        f"SELECT * FROM {GOV}.usuario_aisn WHERE id_usuario_aisn=%s", (uid,)
+        f"SELECT * FROM {GOV}.usuario_aisn WHERE id_usuario_aisn=%s "
+        f"AND bol_atual=true AND bol_excluido=false", (uid,)
     )
 
 
@@ -37,7 +39,7 @@ def listar_personas():
     """Personas disponíveis para o seletor de proxy (dev)."""
     return db.query(
         f"SELECT id_usuario_aisn, nome_completo, desc_email FROM {GOV}.usuario_aisn "
-        f"WHERE bol_atual=true ORDER BY nome_completo"
+        f"WHERE bol_atual=true AND bol_excluido=false ORDER BY nome_completo"
     )
 
 

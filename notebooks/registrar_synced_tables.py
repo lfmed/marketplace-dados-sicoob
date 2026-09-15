@@ -111,6 +111,7 @@ PRIMARY_KEYS = {
     "hierarquia_usuario":          ["id_usuario_aisn", "id_gestor_aisn"],
     "grupo_acesso":                ["id_grupo_acesso"],
     "grupo_acesso_membro":         ["id_grupo_acesso", "id_entidade"],
+    "grupo_acesso_proprietario":   ["id_grupo_acesso", "id_usuario_aisn"],
     "ativo_aisn":                  ["id_ativo_aisn"],
     "ativo_proprietario":          ["id_ativo_aisn", "id_usuario_aisn"],
 }

@@ -12,7 +12,7 @@ STATUS_SOLICITACAO_ABERTOS = {S_PENDENTE_AUTORIZACAO, S_AUTORIZADA}
 STATUS_SOLICITACAO_CANCELAVEL = {S_PENDENTE_AUTORIZACAO, S_AUTORIZADA}
 
 STATUS_SOLICITACAO_LABEL = {
-    S_PENDENTE_AUTORIZACAO: "Pendente de autorização do gestor",
+    S_PENDENTE_AUTORIZACAO: "Pendente de autorização hierárquica",
     S_AUTORIZADA: "Aguardando aprovação do owner",
     S_REPROVADA_GESTOR: "Reprovada pelo gestor",
     S_APROVADA_OWNER: "Aprovada pelo owner",

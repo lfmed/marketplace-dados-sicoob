@@ -29,11 +29,12 @@ def listar_subdominios(id_dominio=None):
     if id_dominio:
         return db.query(
             f"SELECT id_subdominio_informacao, id_dominio_informacao, nome_subdominio "
-            f"FROM {GOV}.subdominio_informacao WHERE bol_atual=true AND id_dominio_informacao=%s "
-            f"ORDER BY nome_subdominio", (id_dominio,))
+            f"FROM {GOV}.subdominio_informacao WHERE bol_atual=true AND bol_excluido=false "
+            f"AND id_dominio_informacao=%s ORDER BY nome_subdominio", (id_dominio,))
     return db.query(
         f"SELECT id_subdominio_informacao, id_dominio_informacao, nome_subdominio "
-        f"FROM {GOV}.subdominio_informacao WHERE bol_atual=true ORDER BY nome_subdominio")
+        f"FROM {GOV}.subdominio_informacao WHERE bol_atual=true AND bol_excluido=false "
+        f"ORDER BY nome_subdominio")
 
 
 def listar_grupos_ativos(id_dominio=None, id_subdominio=None, busca=None):
@@ -43,7 +44,7 @@ def listar_grupos_ativos(id_dominio=None, id_subdominio=None, busca=None):
     where = ["a.bol_atual=true", "a.bol_excluido=false", "a.bol_elegivel_acesso=true",
              "a.nome_grupo_ativo IS NOT NULL",
              f"EXISTS (SELECT 1 FROM {ACC}.ativo_proprietario p "
-             f"        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true)"]
+             f"        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true AND p.bol_excluido=false)"]
     params = []
     if id_dominio:
         where.append(f"{ativo_scope.dominio_id_expr()}=%s"); params.append(id_dominio)
@@ -78,7 +79,7 @@ def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None, gr
     `grupo` filtra pelos ativos de um grupo ativo (nome_grupo_ativo) — usado no drill-down."""
     where = ["a.bol_atual=true", "a.bol_excluido=false", "a.bol_elegivel_acesso=true",
              f"EXISTS (SELECT 1 FROM {ACC}.ativo_proprietario p "
-             f"        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true)"]
+             f"        WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true AND p.bol_excluido=false)"]
     params = []
     if id_dominio:
         where.append(f"{ativo_scope.dominio_id_expr()}=%s"); params.append(id_dominio)
@@ -97,7 +98,8 @@ def listar_ativos(id_dominio=None, id_subdominio=None, tipo=None, busca=None, gr
                (SELECT string_agg(DISTINCT u.nome_completo, ', ')
                   FROM {ACC}.ativo_proprietario p
                   JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
-                 WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true) AS owners
+                       AND u.bol_atual=true AND u.bol_excluido=false
+                 WHERE p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true AND p.bol_excluido=false) AS owners
           FROM {ACC}.ativo_aisn a
           {ativo_scope.ativo_join("a")}
          WHERE {' AND '.join(where)}
@@ -116,7 +118,7 @@ def ativo_por_id(id_ativo):
         f"""SELECT a.*, {ativo_scope.ativo_cols("a")}
              FROM {ACC}.ativo_aisn a
              {ativo_scope.ativo_join("a")}
-            WHERE a.id_ativo_aisn=%s""", (id_ativo,))
+            WHERE a.id_ativo_aisn=%s AND a.bol_atual=true AND a.bol_excluido=false""", (id_ativo,))
 
 
 def detalhe_ativo(id_ativo):
@@ -128,7 +130,8 @@ def detalhe_ativo(id_ativo):
         f"""SELECT u.id_usuario_aisn, u.nome_completo, u.desc_email, p.bol_principal
              FROM {ACC}.ativo_proprietario p
              JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
-            WHERE p.id_ativo_aisn=%s AND p.bol_atual=true
+                  AND u.bol_atual=true AND u.bol_excluido=false
+            WHERE p.id_ativo_aisn=%s AND p.bol_atual=true AND p.bol_excluido=false
             ORDER BY p.bol_principal DESC, u.nome_completo""", (id_ativo,))
     objs = objetos_do_ativo(a)
     for o in objs:

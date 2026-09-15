@@ -92,6 +92,16 @@ GRUPOS = [
     ("grp_compliance_pld","mkt_compliance_pld","EXPLORATORIO", ["u_bruno"]),
 ]
 
+# Proprietário de cada grupo exploratório (id_grupo -> id_usuario). O proprietário do grupo
+# faz a APROVAÇÃO HIERÁRQUICA quando o acesso é pedido em nome do grupo (análogo ao gestor no
+# acesso nominal). Owners distintos dos membros (leandro/bruno) para demonstrar a fila.
+# Alimentada pelo Motor (grupo_acesso_proprietario).
+GRUPO_PROPRIETARIOS = {
+    "grp_risco_credito":  "u_daniela",   # dona de Risco/Score
+    "grp_dados_canais":   "u_ana",       # dona de Canais
+    "grp_compliance_pld": "u_carlos",    # dono de Cadastro/Privacidade
+}
+
 # Tabelas de exemplo por camada (nome lógico -> colunas). Reaproveitadas em cada ICA.
 TABELAS_EXEMPLO = {
     "cam_bronze": [("evento_bruto", "id_evento BIGINT, datahora_evento TIMESTAMP, desc_payload STRING")],

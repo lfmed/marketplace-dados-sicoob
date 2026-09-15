@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS {ACC}.grupo_acesso (
     id_externo_grupo           VARCHAR(255),
     cod_conta_databricks       VARCHAR(255),
     nome_grupo                 VARCHAR(255) NOT NULL,   -- nome do grupo UC alvo da associação
+    tipo_grupo                 VARCHAR(100),            -- 'exploratorio' = pedível em nome do grupo
     datahora_inicio_validade   TIMESTAMP DEFAULT now(),
     datahora_fim_validade      TIMESTAMP,
     bol_atual                  BOOLEAN DEFAULT true,
@@ -74,7 +75,24 @@ CREATE TABLE IF NOT EXISTS {ACC}.ativo_proprietario (
     PRIMARY KEY (id_ativo_aisn, id_usuario_aisn)
 );
 
+-- Proprietário do GRUPO de acesso (grupos exploratórios). O proprietário do grupo faz a
+-- APROVAÇÃO HIERÁRQUICA dos acessos pedidos em nome do grupo (análogo ao gestor no acesso
+-- nominal). Alimentada pelo Motor de Gestão de Acesso.
+CREATE TABLE IF NOT EXISTS {ACC}.grupo_acesso_proprietario (
+    id_grupo_acesso            VARCHAR(255) NOT NULL REFERENCES {ACC}.grupo_acesso(id_grupo_acesso),
+    id_usuario_aisn            VARCHAR(255) NOT NULL,   -- -> {GOV}.usuario_aisn (lógico)
+    cod_tipo_proprietario      VARCHAR(50),
+    bol_principal              BOOLEAN DEFAULT false,
+    datahora_inicio_validade   TIMESTAMP DEFAULT now(),
+    datahora_fim_validade      TIMESTAMP,
+    bol_atual                  BOOLEAN DEFAULT true,
+    bol_excluido               BOOLEAN DEFAULT false,
+    PRIMARY KEY (id_grupo_acesso, id_usuario_aisn)
+);
+
 CREATE INDEX IF NOT EXISTS idx_hierarquia_gestor ON {ACC}.hierarquia_usuario(id_gestor_aisn);
 CREATE INDEX IF NOT EXISTS idx_grupo_membro_entidade ON {ACC}.grupo_acesso_membro(id_entidade);
 CREATE INDEX IF NOT EXISTS idx_ativo_grupo ON {ACC}.ativo_aisn(id_grupo_acesso);
 CREATE INDEX IF NOT EXISTS idx_ativo_prop_usuario ON {ACC}.ativo_proprietario(id_usuario_aisn);
+CREATE INDEX IF NOT EXISTS idx_grupo_prop_usuario ON {ACC}.grupo_acesso_proprietario(id_usuario_aisn);
+CREATE INDEX IF NOT EXISTS idx_grupo_prop_grupo ON {ACC}.grupo_acesso_proprietario(id_grupo_acesso);

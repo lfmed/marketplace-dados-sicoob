@@ -19,7 +19,8 @@ def gestor_imediato(id_usuario):
     return db.query_one(
         f"""SELECT u.* FROM {ACC}.hierarquia_usuario h
              JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=h.id_gestor_aisn
-            WHERE h.id_usuario_aisn=%s AND h.bol_atual=true LIMIT 1""",
+                  AND u.bol_atual=true AND u.bol_excluido=false
+            WHERE h.id_usuario_aisn=%s AND h.bol_atual=true AND h.bol_excluido=false LIMIT 1""",
         (id_usuario,))
 
 
@@ -27,11 +28,11 @@ def superiores(id_usuario):
     rows = db.query(
         f"""WITH RECURSIVE sup AS (
              SELECT id_gestor_aisn FROM {ACC}.hierarquia_usuario
-              WHERE id_usuario_aisn=%s AND bol_atual=true
+              WHERE id_usuario_aisn=%s AND bol_atual=true AND bol_excluido=false
              UNION
              SELECT h.id_gestor_aisn FROM {ACC}.hierarquia_usuario h
                JOIN sup ON h.id_usuario_aisn = sup.id_gestor_aisn
-              WHERE h.bol_atual=true)
+              WHERE h.bol_atual=true AND h.bol_excluido=false)
            SELECT id_gestor_aisn FROM sup""",
         (id_usuario,))
     return [r["id_gestor_aisn"] for r in rows]
@@ -49,18 +50,40 @@ def grupos_do_usuario(id_usuario):
         f"""SELECT g.id_grupo_acesso, g.nome_grupo
              FROM {ACC}.grupo_acesso_membro m
              JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=m.id_grupo_acesso
-            WHERE m.id_entidade=%s AND m.bol_atual=true AND g.bol_atual=true
+            WHERE m.id_entidade=%s AND m.bol_atual=true AND m.bol_excluido=false
+              AND g.bol_atual=true AND g.bol_excluido=false
               AND (m.tipo_entidade='USUARIO' OR m.tipo_entidade IS NULL)
               AND lower(g.tipo_grupo)=lower(%s)
             ORDER BY g.nome_grupo""",
         (id_usuario, config.GRUPO_TIPO_EXPLORATORIO))
 
 
+def proprietario_grupo(id_grupo, id_solicitante=None):
+    """Proprietário do grupo de acesso (grupo_acesso_proprietario) — quem faz a APROVAÇÃO
+    HIERÁRQUICA quando o acesso é solicitado em nome do grupo (análogo ao gestor no acesso
+    nominal). Prefere o principal; nunca devolve o próprio solicitante quando há outro dono
+    (RN-014 análogo). Alimentado pelo Motor de Gestão de Acesso."""
+    donos = db.query(
+        f"""SELECT u.*, p.bol_principal
+             FROM {ACC}.grupo_acesso_proprietario p
+             JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
+                  AND u.bol_atual=true AND u.bol_excluido=false
+            WHERE p.id_grupo_acesso=%s AND p.bol_atual=true AND p.bol_excluido=false
+            ORDER BY p.bol_principal DESC NULLS LAST, u.nome_completo""",
+        (id_grupo,))
+    if id_solicitante:
+        outros = [d for d in donos if d["id_usuario_aisn"] != id_solicitante]
+        if outros:
+            return outros[0]
+    return donos[0] if donos else None
+
+
 # ---------------- Regras ----------------
 def _ativo_com_owner(id_ativo):
     return db.query_one(
         f"""SELECT 1 AS ok FROM {ACC}.ativo_proprietario
-             WHERE id_ativo_aisn=%s AND bol_atual=true LIMIT 1""", (id_ativo,)) is not None
+             WHERE id_ativo_aisn=%s AND bol_atual=true AND bol_excluido=false LIMIT 1""",
+        (id_ativo,)) is not None
 
 
 def _conflito_duplicidade(tipo_benef, id_benef_user, id_grupo, tipo_acesso, id_ativo):
@@ -102,7 +125,8 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
         raise RegraNegocioError("Usuário não cadastrado no catálogo; não é possível solicitar.")
 
     ativo = db.query_one(
-        f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s AND bol_atual=true", (id_ativo,))
+        f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s AND bol_atual=true AND bol_excluido=false",
+        (id_ativo,))
     if not ativo:
         raise RegraNegocioError("Ativo não encontrado no catálogo.")
     if not ativo.get("bol_elegivel_acesso"):
@@ -115,7 +139,8 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
             raise RegraNegocioError("Grupo beneficiário não informado.")
         membro = db.query_one(
             f"""SELECT 1 AS ok FROM {ACC}.grupo_acesso_membro
-                 WHERE id_grupo_acesso=%s AND id_entidade=%s AND bol_atual=true""",
+                 WHERE id_grupo_acesso=%s AND id_entidade=%s
+                   AND bol_atual=true AND bol_excluido=false""",
             (id_grupo, id_solicitante))
         if not membro:
             raise RegraNegocioError("Você não é membro do grupo informado (RN-007).")
@@ -129,10 +154,19 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
     if conflito:
         raise RegraNegocioError(f"Solicitação impedida: {conflito} (RN-010).")
 
-    gestor = gestor_imediato(id_solicitante)
-    if not gestor:
-        raise RegraNegocioError("Não foi possível identificar seu gestor imediato para autorização (RN-013).")
-    if gestor["id_usuario_aisn"] == id_solicitante:
+    # Autorização hierárquica: acesso NOMINAL -> gestor imediato do solicitante; acesso em
+    # nome do GRUPO -> proprietário do grupo exploratório (grupo_acesso_proprietario).
+    if tipo_benef == C.B_GRUPO:
+        autorizador = proprietario_grupo(id_grupo, id_solicitante)
+        if not autorizador:
+            raise RegraNegocioError(
+                "Grupo sem proprietário definido para autorização hierárquica (RN-013).")
+    else:
+        autorizador = gestor_imediato(id_solicitante)
+        if not autorizador:
+            raise RegraNegocioError(
+                "Não foi possível identificar seu gestor imediato para autorização (RN-013).")
+    if autorizador["id_usuario_aisn"] == id_solicitante:
         raise RegraNegocioError("O solicitante não pode autorizar a própria solicitação (RN-014).")
 
     id_sol = uuid.uuid4().hex
@@ -146,12 +180,12 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
                     id_usuario_autorizador_previsto)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (id_sol, id_solicitante, tipo_benef, id_beneficiario, id_grupo, id_ativo,
-                 tipo_acesso, justificativa, C.S_PENDENTE_AUTORIZACAO, gestor["id_usuario_aisn"]))
+                 tipo_acesso, justificativa, C.S_PENDENTE_AUTORIZACAO, autorizador["id_usuario_aisn"]))
             audit_service.registrar(
                 cur, C.EV_SOLICITACAO_CRIADA, id_solicitacao=id_sol, id_usuario=id_solicitante,
                 detalhe=f"ativo: {ativo['nome_ativo']} "
                         f"({C.TIPO_ATIVO_LABEL.get(ativo['cod_tipo_ativo'], ativo['cod_tipo_ativo'])}); "
-                        f"autorizador previsto: {gestor['nome_completo']}")
+                        f"autorizador previsto: {autorizador['nome_completo']}")
         conn.commit()
     return id_sol
 
@@ -163,9 +197,12 @@ def listar_do_usuario(id_usuario):
                   g.nome_grupo, ubenef.nome_completo AS nome_beneficiario, ac.cod_status_acesso
              FROM {APP}.solicitacao_acesso s
              LEFT JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+                       AND a.bol_atual=true AND a.bol_excluido=false
              {ativo_scope.ativo_join("a")}
              LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
+                       AND g.bol_atual=true AND g.bol_excluido=false
              LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
+                       AND ubenef.bol_atual=true AND ubenef.bol_excluido=false
              LEFT JOIN {APP}.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
             WHERE s.id_usuario_solicitante=%s
             ORDER BY s.datahora_criacao DESC""",
@@ -181,11 +218,16 @@ def detalhe(id_solicitacao):
                   ac.id_acesso, ac.cod_status_acesso, ac.datahora_efetivacao
              FROM {APP}.solicitacao_acesso s
              LEFT JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+                       AND a.bol_atual=true AND a.bol_excluido=false
              {ativo_scope.ativo_join("a")}
              JOIN {GOV}.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
+                  AND usol.bol_atual=true AND usol.bol_excluido=false
              LEFT JOIN {GOV}.usuario_aisn uaut ON uaut.id_usuario_aisn=s.id_usuario_autorizador_previsto
+                       AND uaut.bol_atual=true AND uaut.bol_excluido=false
              LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
+                       AND g.bol_atual=true AND g.bol_excluido=false
              LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
+                       AND ubenef.bol_atual=true AND ubenef.bol_excluido=false
              LEFT JOIN {APP}.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
             WHERE s.id_solicitacao_acesso=%s""",
         (id_solicitacao,))
@@ -199,7 +241,8 @@ def detalhe(id_solicitacao):
         f"""SELECT u.nome_completo, p.bol_principal
              FROM {ACC}.ativo_proprietario p
              JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
-            WHERE p.id_ativo_aisn=%s AND p.bol_atual=true
+                  AND u.bol_atual=true AND u.bol_excluido=false
+            WHERE p.id_ativo_aisn=%s AND p.bol_atual=true AND p.bol_excluido=false
             ORDER BY p.bol_principal DESC, u.nome_completo""",
         (s["id_ativo_aisn"],)) if s.get("id_ativo_aisn") else []
     s["eventos"] = audit_service.eventos_da_solicitacao(id_solicitacao)

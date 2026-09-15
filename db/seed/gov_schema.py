@@ -73,6 +73,9 @@ GOV_TABLES = [
     (ACC, "ativo_proprietario",
      ["id_ativo_aisn", "id_usuario_aisn", "cod_tipo_proprietario", "bol_principal"] + SCD2,
      ["id_ativo_aisn", "id_usuario_aisn"]),
+    (ACC, "grupo_acesso_proprietario",
+     ["id_grupo_acesso", "id_usuario_aisn", "cod_tipo_proprietario", "bol_principal"] + SCD2,
+     ["id_grupo_acesso", "id_usuario_aisn"]),
 ]
 
 # Schemas Delta (UC) do Motor — dois, dentro de GOV_CATALOG (cliente: plataforma).

@@ -30,7 +30,9 @@ def create_app():
         papeis = {"gestor": False, "owner": False}
         grupos = []
         if uid:
-            papeis["gestor"] = _e_gestor(uid)
+            # "gestor" aqui = tem fila de AUTORIZAÇÃO HIERÁRQUICA: gestor de pessoas OU
+            # proprietário de grupo exploratório (autoriza acessos pedidos em nome do grupo).
+            papeis["gestor"] = _e_gestor(uid) or _e_prop_grupo(uid)
             papeis["owner"] = _e_owner(uid)
             grupos = request_service.grupos_do_usuario(uid)
         proxy_ok = identity.proxy_liberado()
@@ -62,7 +64,19 @@ def _e_gestor(uid):
     from app import db
     from app.schemas import ACC
     return db.query_one(
-        f"SELECT 1 AS ok FROM {ACC}.hierarquia_usuario WHERE id_gestor_aisn=%s AND bol_atual=true LIMIT 1",
+        f"SELECT 1 AS ok FROM {ACC}.hierarquia_usuario WHERE id_gestor_aisn=%s "
+        f"AND bol_atual=true AND bol_excluido=false LIMIT 1",
+        (uid,)) is not None
+
+
+def _e_prop_grupo(uid):
+    # Proprietário de algum grupo exploratório (grupo_acesso_proprietario, em {ACC}) —
+    # autoriza (aprovação hierárquica) os acessos pedidos em nome do grupo.
+    from app import db
+    from app.schemas import ACC
+    return db.query_one(
+        f"SELECT 1 AS ok FROM {ACC}.grupo_acesso_proprietario WHERE id_usuario_aisn=%s "
+        f"AND bol_atual=true AND bol_excluido=false LIMIT 1",
         (uid,)) is not None
 
 
@@ -72,7 +86,8 @@ def _e_owner(uid):
     from app import db
     from app.schemas import ACC
     return db.query_one(
-        f"SELECT 1 AS ok FROM {ACC}.ativo_proprietario WHERE id_usuario_aisn=%s AND bol_atual=true LIMIT 1",
+        f"SELECT 1 AS ok FROM {ACC}.ativo_proprietario WHERE id_usuario_aisn=%s "
+        f"AND bol_atual=true AND bol_excluido=false LIMIT 1",
         (uid,)) is not None
 
 

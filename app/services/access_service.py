@@ -54,12 +54,14 @@ def acessos_do_usuario(id_usuario):
                        ELSE 'Grupo: ' || g.nome_grupo END AS origem
              FROM {APP}.acesso a
              LEFT JOIN {ACC}.ativo_aisn at ON at.id_ativo_aisn=a.id_ativo_aisn
+                       AND at.bol_atual=true AND at.bol_excluido=false
              {ativo_scope.ativo_join("at")}
              LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
+                       AND g.bol_atual=true AND g.bol_excluido=false
             WHERE (a.cod_tipo_beneficiario='NOMINAL' AND a.id_usuario_beneficiario=%s)
                OR (a.cod_tipo_beneficiario='GRUPO' AND a.id_grupo_acesso IN (
                      SELECT id_grupo_acesso FROM {ACC}.grupo_acesso_membro
-                      WHERE id_entidade=%s AND bol_atual=true))
+                      WHERE id_entidade=%s AND bol_atual=true AND bol_excluido=false))
             ORDER BY a.datahora_aprovacao DESC""",
         (id_usuario, id_usuario))
     return _anotar_sla(rows)
@@ -72,7 +74,8 @@ def acesso_padrao_owner(id_usuario):
              FROM {ACC}.ativo_proprietario p
              JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=p.id_ativo_aisn
              {ativo_scope.ativo_join("a")}
-            WHERE p.id_usuario_aisn=%s AND p.bol_atual=true AND a.bol_atual=true
+            WHERE p.id_usuario_aisn=%s AND p.bol_atual=true AND p.bol_excluido=false
+              AND a.bol_atual=true AND a.bol_excluido=false
             ORDER BY a.cod_tipo_ativo, a.nome_ativo""",
         (id_usuario,))
 
@@ -86,11 +89,14 @@ def acessos_do_owner(id_owner):
                        ELSE 'Grupo: ' || g.nome_grupo END AS origem
              FROM {APP}.acesso a
              JOIN {ACC}.ativo_aisn at ON at.id_ativo_aisn=a.id_ativo_aisn
+                  AND at.bol_atual=true AND at.bol_excluido=false
              {ativo_scope.ativo_join("at")}
              JOIN {ACC}.ativo_proprietario p
-                  ON p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true
+                  ON p.id_ativo_aisn=a.id_ativo_aisn AND p.bol_atual=true AND p.bol_excluido=false
              LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
+                       AND g.bol_atual=true AND g.bol_excluido=false
              LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=a.id_usuario_beneficiario
+                       AND ubenef.bol_atual=true AND ubenef.bol_excluido=false
             WHERE p.id_usuario_aisn=%s AND a.cod_status_acesso <> 'REVOGADO'
             ORDER BY a.datahora_aprovacao DESC""",
         (id_owner,))
@@ -109,7 +115,7 @@ def solicitar_revogacao(id_acesso, id_owner, justificativa=None):
         raise RegraNegocioError("Acesso não encontrado.")
     escopo = db.query_one(
         f"""SELECT 1 AS ok FROM {ACC}.ativo_proprietario
-             WHERE id_ativo_aisn=%s AND id_usuario_aisn=%s AND bol_atual=true""",
+             WHERE id_ativo_aisn=%s AND id_usuario_aisn=%s AND bol_atual=true AND bol_excluido=false""",
         (ac["id_ativo_aisn"], id_owner))
     if not escopo:
         raise RegraNegocioError("Você não é owner deste ativo (RN-026).")

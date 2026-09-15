@@ -23,6 +23,7 @@ def eventos_da_solicitacao(id_solicitacao):
         f"""SELECT e.*, u.nome_completo AS nome_usuario_evento
              FROM {APP}.evento_ciclo_vida e
              LEFT JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=e.id_usuario_evento
+                       AND u.bol_atual=true AND u.bol_excluido=false
             WHERE e.id_solicitacao_acesso=%s
                OR e.id_acesso IN (SELECT id_acesso FROM {APP}.acesso
                                    WHERE id_solicitacao_acesso=%s)
@@ -43,12 +44,16 @@ def auditoria_do_owner(id_owner):
                   ac.id_acesso, ac.cod_status_acesso, ac.datahora_efetivacao
              FROM {APP}.solicitacao_acesso s
              JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
+                  AND a.bol_atual=true AND a.bol_excluido=false
              {ativo_scope.ativo_join("a")}
              JOIN {ACC}.ativo_proprietario p
-                  ON p.id_ativo_aisn=s.id_ativo_aisn AND p.bol_atual=true
+                  ON p.id_ativo_aisn=s.id_ativo_aisn AND p.bol_atual=true AND p.bol_excluido=false
              JOIN {GOV}.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
+                  AND usol.bol_atual=true AND usol.bol_excluido=false
              LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
+                       AND ubenef.bol_atual=true AND ubenef.bol_excluido=false
              LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
+                       AND g.bol_atual=true AND g.bol_excluido=false
              LEFT JOIN {APP}.acesso ac ON ac.id_solicitacao_acesso=s.id_solicitacao_acesso
             WHERE p.id_usuario_aisn=%s
             ORDER BY s.datahora_criacao DESC""",

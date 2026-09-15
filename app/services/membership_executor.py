@@ -27,17 +27,22 @@ def _grupo_do_ativo(id_ativo):
         f"""SELECT a.id_grupo_acesso, g.nome_grupo
              FROM {ACC}.ativo_aisn a
              JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=a.id_grupo_acesso
-            WHERE a.id_ativo_aisn=%s""", (id_ativo,))
+                  AND g.bol_atual=true AND g.bol_excluido=false
+            WHERE a.id_ativo_aisn=%s AND a.bol_atual=true AND a.bol_excluido=false""", (id_ativo,))
 
 
 def _beneficiario(acesso):
     """(tipo_membro, chave): ('USUARIO', email) | ('GRUPO', nome_grupo)."""
     if acesso["cod_tipo_beneficiario"] == C.B_NOMINAL:
-        u = db.query_one(f"SELECT desc_email FROM {GOV}.usuario_aisn WHERE id_usuario_aisn=%s",
-                         (acesso["id_usuario_beneficiario"],))
+        u = db.query_one(
+            f"""SELECT desc_email FROM {GOV}.usuario_aisn
+                 WHERE id_usuario_aisn=%s AND bol_atual=true AND bol_excluido=false""",
+            (acesso["id_usuario_beneficiario"],))
         return "USUARIO", (u or {}).get("desc_email")
-    g = db.query_one(f"SELECT nome_grupo FROM {ACC}.grupo_acesso WHERE id_grupo_acesso=%s",
-                     (acesso["id_grupo_acesso"],))
+    g = db.query_one(
+        f"""SELECT nome_grupo FROM {ACC}.grupo_acesso
+             WHERE id_grupo_acesso=%s AND bol_atual=true AND bol_excluido=false""",
+        (acesso["id_grupo_acesso"],))
     return "GRUPO", (g or {}).get("nome_grupo")
 
 
@@ -106,8 +111,10 @@ def executar(operacao, acesso):
         gid = _ensure_group(w, nome_grupo_acesso)
         if operacao == C.OP_CONCESSAO:
             if config.PROVISION_GROUP_GRANT:  # dev: garante o GRANT do grupo (prod: Motor faz)
-                ativo = db.query_one(f"SELECT * FROM {ACC}.ativo_aisn WHERE id_ativo_aisn=%s",
-                                     (acesso["id_ativo_aisn"],))
+                ativo = db.query_one(
+                    f"""SELECT * FROM {ACC}.ativo_aisn
+                         WHERE id_ativo_aisn=%s AND bol_atual=true AND bol_excluido=false""",
+                    (acesso["id_ativo_aisn"],))
                 ok_p, cmds_p, err_p = grant_executor.provisionar_ativo(
                     ativo, nome_grupo_acesso, acesso.get("cod_tipo_acesso"))
                 linhas += [f"-- provisionamento do grupo: {'ok' if ok_p else 'aviso: ' + (err_p or '')}"]

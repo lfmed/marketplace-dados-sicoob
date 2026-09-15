@@ -117,6 +117,11 @@ def build_rows(icas):
             r["grupo_acesso_membro"].append({
                 "id_grupo_acesso": gid, "cod_conta_databricks": None, "tipo_entidade": "USUARIO",
                 "id_entidade": m, "nome_entidade": m, **_scd2()})
+    # Proprietário do grupo exploratório (autoriza acessos pedidos em nome do grupo).
+    for gid, uid in data.GRUPO_PROPRIETARIOS.items():
+        r["grupo_acesso_proprietario"].append({
+            "id_grupo_acesso": gid, "id_usuario_aisn": uid,
+            "cod_tipo_proprietario": "OWNER", "bol_principal": True, **_scd2()})
 
     # Proprietários de domínio/subdomínio (herdados p/ fidelidade ao modelo)
     sub2owner, dom2owner = {}, {}
