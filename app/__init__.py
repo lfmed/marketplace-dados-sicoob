@@ -27,13 +27,14 @@ def create_app():
     def inject_context():
         u = identity.usuario_atual()
         uid = u.get("id_usuario_aisn") if u else None
-        papeis = {"gestor": False, "owner": False}
+        papeis = {"gestor": False, "owner": False, "dono_grupo": False}
         grupos = []
         if uid:
-            # "gestor" aqui = tem fila de AUTORIZAÇÃO HIERÁRQUICA: gestor de pessoas OU
-            # proprietário de grupo exploratório (autoriza acessos pedidos em nome do grupo).
-            papeis["gestor"] = _e_gestor(uid) or _e_prop_grupo(uid)
+            # gestor = 1ª etapa (autorização hierárquica). owner = 2ª etapa p/ pedido nominal
+            # (dono do ativo). dono_grupo = 2ª etapa p/ pedido de grupo (dono do grupo).
+            papeis["gestor"] = _e_gestor(uid)
             papeis["owner"] = _e_owner(uid)
+            papeis["dono_grupo"] = _e_prop_grupo(uid)
             grupos = request_service.grupos_do_usuario(uid)
         proxy_ok = identity.proxy_liberado()
         return dict(usuario=u, papeis=papeis, meus_grupos=grupos,

@@ -37,7 +37,7 @@
     {% set ep = request.endpoint %}
     <a href="{{ url_for('catalog.catalogo') }}" class="{{ 'active' if ep and ep.startswith('catalog') }}">📚 Catálogo</a>
     <a href="{{ url_for('requests.minhas') }}" class="{{ 'active' if ep=='requests.minhas' }}">📝 Minhas solicitações</a>
-    {% if papeis.gestor or papeis.owner %}
+    {% if papeis.gestor or papeis.owner or papeis.dono_grupo %}
     <a href="{{ url_for('approvals.aprovacoes') }}" class="{{ 'active' if ep and ep.startswith('approvals') }}">✅ Aprovações</a>
     {% endif %}
     <a href="{{ url_for('accesses.meus') }}" class="{{ 'active' if ep=='accesses.meus' }}">🔑 Meus acessos</a>

@@ -81,22 +81,28 @@ def test_rn007_grupo_somente_membro(conectado, usuario):
             id_grupo="grp_risco_credito", justificativa="x")
 
 
-def test_grupo_autorizado_pelo_proprietario(conectado, usuario):
-    """Acesso em nome de grupo exploratório: a APROVAÇÃO HIERÁRQUICA é do PROPRIETÁRIO do
-    grupo (grupo_acesso_proprietario), não do gestor do solicitante."""
+def test_grupo_gestor_autoriza_dono_grupo_aprova(conectado, usuario):
+    """Pedido em nome de grupo exploratório: 1ª etapa = GESTOR imediato do solicitante
+    (u_mariana); 2ª etapa = DONO DO GRUPO (u_daniela), não o dono do ativo (u_ana)."""
     id1 = request_service.criar_solicitacao(
         usuario("u_leandro"), C.B_GRUPO, ICA_ATIVO,
         id_grupo="grp_risco_credito", justificativa="grupo")
     try:
         s = request_service.detalhe(id1)
-        assert s["id_usuario_autorizador_previsto"] == "u_daniela"   # dona de grp_risco_credito
-        # o gestor do solicitante (u_mariana) NÃO autoriza acesso de grupo
+        # 1ª etapa: autorizador previsto é o GESTOR do solicitante (não o dono do grupo)
+        assert s["id_usuario_autorizador_previsto"] == "u_mariana"
+        # o dono do grupo (u_daniela) NÃO faz a 1ª etapa (não é gestor do solicitante)
+        with pytest.raises(RegraNegocioError, match="RN-013"):
+            approval_service.decidir_autorizacao(id1, "u_daniela", aprovar=True)
+        approval_service.decidir_autorizacao(id1, "u_mariana", aprovar=True)     # gestor autoriza
+        # 2ª etapa: o dono do ATIVO (u_ana) NÃO aprova pedido de grupo
         with pytest.raises(RegraNegocioError, match="proprietário do grupo"):
-            approval_service.decidir_autorizacao(id1, "u_mariana", aprovar=True)
-        # a proprietária do grupo autoriza
-        approval_service.decidir_autorizacao(id1, "u_daniela", aprovar=True)
+            approval_service.decidir_aprovacao_owner(id1, "u_ana", aprovar=True)
+        # o dono do GRUPO (u_daniela) aprova
+        approval_service.decidir_aprovacao_owner(id1, "u_daniela", aprovar=True)
         s = request_service.detalhe(id1)
-        assert s["cod_status_solicitacao"] == C.S_AUTORIZADA
+        assert s["cod_status_solicitacao"] == C.S_APROVADA_OWNER
+        assert s["dono_grupo"] and s["dono_grupo"]["id_usuario_aisn"] == "u_daniela"
     finally:
         limpar_solicitacao(id1)
 

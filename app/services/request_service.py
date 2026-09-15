@@ -58,24 +58,19 @@ def grupos_do_usuario(id_usuario):
         (id_usuario, config.GRUPO_TIPO_EXPLORATORIO))
 
 
-def proprietario_grupo(id_grupo, id_solicitante=None):
-    """Proprietário do grupo de acesso (grupo_acesso_proprietario) — quem faz a APROVAÇÃO
-    HIERÁRQUICA quando o acesso é solicitado em nome do grupo (análogo ao gestor no acesso
-    nominal). Prefere o principal; nunca devolve o próprio solicitante quando há outro dono
-    (RN-014 análogo). Alimentado pelo Motor de Gestão de Acesso."""
-    donos = db.query(
+def proprietario_grupo(id_grupo):
+    """Proprietário (principal) do grupo de acesso (grupo_acesso_proprietario) — quem faz a
+    2ª etapa (APROVAÇÃO DO DONO) quando o acesso é pedido em nome do grupo, no lugar do dono
+    do ativo. A 1ª etapa (autorização hierárquica) continua sendo o gestor imediato do
+    solicitante. Alimentado pelo Motor de Gestão de Acesso."""
+    return db.query_one(
         f"""SELECT u.*, p.bol_principal
              FROM {ACC}.grupo_acesso_proprietario p
              JOIN {GOV}.usuario_aisn u ON u.id_usuario_aisn=p.id_usuario_aisn
                   AND u.bol_atual=true AND u.bol_excluido=false
             WHERE p.id_grupo_acesso=%s AND p.bol_atual=true AND p.bol_excluido=false
-            ORDER BY p.bol_principal DESC NULLS LAST, u.nome_completo""",
+            ORDER BY p.bol_principal DESC NULLS LAST, u.nome_completo LIMIT 1""",
         (id_grupo,))
-    if id_solicitante:
-        outros = [d for d in donos if d["id_usuario_aisn"] != id_solicitante]
-        if outros:
-            return outros[0]
-    return donos[0] if donos else None
 
 
 # ---------------- Regras ----------------
@@ -154,20 +149,19 @@ def criar_solicitacao(solicitante, tipo_benef, id_ativo, tipo_acesso="LEITURA",
     if conflito:
         raise RegraNegocioError(f"Solicitação impedida: {conflito} (RN-010).")
 
-    # Autorização hierárquica: acesso NOMINAL -> gestor imediato do solicitante; acesso em
-    # nome do GRUPO -> proprietário do grupo exploratório (grupo_acesso_proprietario).
-    if tipo_benef == C.B_GRUPO:
-        autorizador = proprietario_grupo(id_grupo, id_solicitante)
-        if not autorizador:
-            raise RegraNegocioError(
-                "Grupo sem proprietário definido para autorização hierárquica (RN-013).")
-    else:
-        autorizador = gestor_imediato(id_solicitante)
-        if not autorizador:
-            raise RegraNegocioError(
-                "Não foi possível identificar seu gestor imediato para autorização (RN-013).")
+    # Autorização hierárquica (1ª etapa) é SEMPRE do gestor imediato do solicitante — tanto
+    # no acesso nominal quanto em nome de grupo (o solicitante é uma pessoa com gestor). Para
+    # grupo, a 2ª etapa (aprovação do dono) é do proprietário do grupo, não do dono do ativo;
+    # validamos cedo que o grupo tem dono (senão o pedido ficaria sem quem aprovar).
+    autorizador = gestor_imediato(id_solicitante)
+    if not autorizador:
+        raise RegraNegocioError(
+            "Não foi possível identificar seu gestor imediato para autorização (RN-013).")
     if autorizador["id_usuario_aisn"] == id_solicitante:
         raise RegraNegocioError("O solicitante não pode autorizar a própria solicitação (RN-014).")
+    if tipo_benef == C.B_GRUPO and not proprietario_grupo(id_grupo):
+        raise RegraNegocioError(
+            "Grupo sem proprietário definido para aprovação — indisponível para solicitação (RN-013).")
 
     id_sol = uuid.uuid4().hex
     with db.get_conn(autocommit=False) as conn:
@@ -245,6 +239,10 @@ def detalhe(id_solicitacao):
             WHERE p.id_ativo_aisn=%s AND p.bol_atual=true AND p.bol_excluido=false
             ORDER BY p.bol_principal DESC, u.nome_completo""",
         (s["id_ativo_aisn"],)) if s.get("id_ativo_aisn") else []
+    # Pedido em nome de grupo: a 2ª etapa é aprovada pelo DONO DO GRUPO (não pelo dono do ativo).
+    s["dono_grupo"] = (proprietario_grupo(s["id_grupo_acesso"])
+                       if s.get("cod_tipo_beneficiario") == C.B_GRUPO and s.get("id_grupo_acesso")
+                       else None)
     s["eventos"] = audit_service.eventos_da_solicitacao(id_solicitacao)
     return s
 

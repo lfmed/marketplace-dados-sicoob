@@ -15,11 +15,10 @@ _SEL = f"""s.*, a.nome_ativo, a.cod_tipo_ativo, {ativo_scope.ativo_cols("a")},
 _ATIVO_JOIN = ativo_scope.ativo_join("a")
 
 
-# ---------------- Fila de autorização hierárquica (RF-027) ----------------
+# ---------------- Fila de autorização hierárquica — gestor (RF-027) ----------------
 def fila_gestor(id_gestor):
-    """Fila de AUTORIZAÇÃO HIERÁRQUICA do usuário corrente. Acesso NOMINAL: gestor imediato
-    (ou superior hierárquico) do solicitante. Acesso em nome de GRUPO: proprietário do grupo
-    exploratório (grupo_acesso_proprietario). O nome `gestor` é mantido por compatibilidade."""
+    """1ª etapa (AUTORIZAÇÃO HIERÁRQUICA): gestor imediato (ou superior) do solicitante —
+    para acesso NOMINAL e em nome de GRUPO (o solicitante é sempre uma pessoa com gestor)."""
     return db.query(
         f"""WITH RECURSIVE sub AS (
              SELECT id_usuario_aisn FROM {ACC}.hierarquia_usuario
@@ -40,18 +39,10 @@ def fila_gestor(id_gestor):
              LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
                        AND ubenef.bol_atual=true AND ubenef.bol_excluido=false
             WHERE s.cod_status_solicitacao=%s
-              AND (
-                (s.cod_tipo_beneficiario='{C.B_NOMINAL}'
-                   AND (s.id_usuario_autorizador_previsto=%s
-                        OR s.id_usuario_solicitante IN (SELECT id_usuario_aisn FROM sub)))
-                OR
-                (s.cod_tipo_beneficiario='{C.B_GRUPO}' AND EXISTS (
-                    SELECT 1 FROM {ACC}.grupo_acesso_proprietario gp
-                     WHERE gp.id_grupo_acesso=s.id_grupo_acesso AND gp.id_usuario_aisn=%s
-                       AND gp.bol_atual=true AND gp.bol_excluido=false))
-              )
+              AND (s.id_usuario_autorizador_previsto=%s
+                   OR s.id_usuario_solicitante IN (SELECT id_usuario_aisn FROM sub))
             ORDER BY s.datahora_criacao""",
-        (id_gestor, C.S_PENDENTE_AUTORIZACAO, id_gestor, id_gestor))
+        (id_gestor, C.S_PENDENTE_AUTORIZACAO, id_gestor))
 
 
 def _e_proprietario_grupo(id_grupo, id_usuario):
@@ -73,15 +64,10 @@ def decidir_autorizacao(id_solicitacao, id_gestor, aprovar, justificativa=None):
         raise RegraNegocioError("Solicitação não está pendente de autorização.")
     if id_gestor == s["id_usuario_solicitante"]:
         raise RegraNegocioError("O solicitante não pode autorizar a própria solicitação (RN-014).")
-    # Autorização hierárquica: GRUPO -> proprietário do grupo; NOMINAL -> gestor/superior.
-    if s["cod_tipo_beneficiario"] == C.B_GRUPO:
-        if not _e_proprietario_grupo(s["id_grupo_acesso"], id_gestor):
-            raise RegraNegocioError(
-                "Você não é proprietário do grupo desta solicitação (RN-013).")
-    else:
-        from app.services.request_service import e_superior
-        if id_gestor != s["id_usuario_autorizador_previsto"] and not e_superior(id_gestor, s["id_usuario_solicitante"]):
-            raise RegraNegocioError("Você não é gestor imediato nem superior hierárquico do solicitante (RN-013).")
+    # 1ª etapa é sempre do gestor imediato (ou superior) do solicitante — nominal e grupo.
+    from app.services.request_service import e_superior
+    if id_gestor != s["id_usuario_autorizador_previsto"] and not e_superior(id_gestor, s["id_usuario_solicitante"]):
+        raise RegraNegocioError("Você não é gestor imediato nem superior hierárquico do solicitante (RN-013).")
     resultado = C.R_APROVADA if aprovar else C.R_REPROVADA
     novo_status = C.S_AUTORIZADA if aprovar else C.S_REPROVADA_GESTOR
     with db.get_conn(autocommit=False) as conn:
@@ -101,25 +87,38 @@ def decidir_autorizacao(id_solicitacao, id_gestor, aprovar, justificativa=None):
         conn.commit()
 
 
-# ---------------- Fila do owner do ativo (RF-034) ----------------
+# ---------------- Fila da 2ª etapa — aprovação do dono (RF-034) ----------------
 def fila_owner(id_owner):
+    """2ª etapa (APROVAÇÃO DO DONO): pedido NOMINAL -> dono do ATIVO (ativo_proprietario);
+    pedido em nome de GRUPO -> dono do GRUPO (grupo_acesso_proprietario). O dono do ativo NÃO
+    aprova pedido de grupo (o grupo já detém o grant; quem controla a associação é o dono do
+    grupo)."""
     return db.query(
         f"""SELECT {_SEL}
              FROM {APP}.solicitacao_acesso s
              JOIN {ACC}.ativo_aisn a ON a.id_ativo_aisn=s.id_ativo_aisn
                   AND a.bol_atual=true AND a.bol_excluido=false
              {_ATIVO_JOIN}
-             JOIN {ACC}.ativo_proprietario p
-                  ON p.id_ativo_aisn=s.id_ativo_aisn AND p.bol_atual=true AND p.bol_excluido=false
              JOIN {GOV}.usuario_aisn usol ON usol.id_usuario_aisn=s.id_usuario_solicitante
                   AND usol.bol_atual=true AND usol.bol_excluido=false
              LEFT JOIN {ACC}.grupo_acesso g ON g.id_grupo_acesso=s.id_grupo_acesso
                        AND g.bol_atual=true AND g.bol_excluido=false
              LEFT JOIN {GOV}.usuario_aisn ubenef ON ubenef.id_usuario_aisn=s.id_usuario_beneficiario
                        AND ubenef.bol_atual=true AND ubenef.bol_excluido=false
-            WHERE s.cod_status_solicitacao=%s AND p.id_usuario_aisn=%s
+            WHERE s.cod_status_solicitacao=%s
+              AND (
+                (s.cod_tipo_beneficiario='{C.B_NOMINAL}' AND EXISTS (
+                    SELECT 1 FROM {ACC}.ativo_proprietario p
+                     WHERE p.id_ativo_aisn=s.id_ativo_aisn AND p.id_usuario_aisn=%s
+                       AND p.bol_atual=true AND p.bol_excluido=false))
+                OR
+                (s.cod_tipo_beneficiario='{C.B_GRUPO}' AND EXISTS (
+                    SELECT 1 FROM {ACC}.grupo_acesso_proprietario gp
+                     WHERE gp.id_grupo_acesso=s.id_grupo_acesso AND gp.id_usuario_aisn=%s
+                       AND gp.bol_atual=true AND gp.bol_excluido=false))
+              )
             ORDER BY s.datahora_criacao""",
-        (C.S_AUTORIZADA, id_owner))
+        (C.S_AUTORIZADA, id_owner, id_owner))
 
 
 def decidir_aprovacao_owner(id_solicitacao, id_owner, aprovar, justificativa=None):
@@ -128,15 +127,20 @@ def decidir_aprovacao_owner(id_solicitacao, id_owner, aprovar, justificativa=Non
     if not s:
         raise RegraNegocioError("Solicitação não encontrada.")
     if s["cod_status_solicitacao"] != C.S_AUTORIZADA:
-        raise RegraNegocioError("Solicitação precisa estar autorizada pelo gestor antes da aprovação do owner.")
-    dono = db.query_one(
-        f"""SELECT 1 AS ok FROM {ACC}.ativo_proprietario
-             WHERE id_ativo_aisn=%s AND id_usuario_aisn=%s AND bol_atual=true AND bol_excluido=false""",
-        (s["id_ativo_aisn"], id_owner))
-    if not dono:
-        raise RegraNegocioError("Você não é owner deste ativo (RN-006).")
-    if aprovar and s["cod_tipo_beneficiario"] == C.B_NOMINAL and s["id_usuario_beneficiario"] == id_owner:
-        raise RegraNegocioError("O owner não pode aprovar acesso nominal para o próprio usuário (RN-017).")
+        raise RegraNegocioError("Solicitação precisa estar autorizada pelo gestor antes da aprovação do dono.")
+    # 2ª etapa: GRUPO -> dono do grupo; NOMINAL -> dono do ativo.
+    if s["cod_tipo_beneficiario"] == C.B_GRUPO:
+        if not _e_proprietario_grupo(s["id_grupo_acesso"], id_owner):
+            raise RegraNegocioError("Você não é proprietário do grupo desta solicitação (RN-006).")
+    else:
+        dono = db.query_one(
+            f"""SELECT 1 AS ok FROM {ACC}.ativo_proprietario
+                 WHERE id_ativo_aisn=%s AND id_usuario_aisn=%s AND bol_atual=true AND bol_excluido=false""",
+            (s["id_ativo_aisn"], id_owner))
+        if not dono:
+            raise RegraNegocioError("Você não é owner deste ativo (RN-006).")
+        if aprovar and s["id_usuario_beneficiario"] == id_owner:
+            raise RegraNegocioError("O owner não pode aprovar acesso nominal para o próprio usuário (RN-017).")
     resultado = C.R_APROVADA if aprovar else C.R_REPROVADA
     novo_status = C.S_APROVADA_OWNER if aprovar else C.S_REPROVADA_OWNER
     with db.get_conn(autocommit=False) as conn:

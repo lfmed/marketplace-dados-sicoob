@@ -44,13 +44,19 @@
     {% endfor %}
     {# Etapa pendente (próxima ação) — mostra o responsável, como no passo do gestor #}
     {% if s.cod_status_solicitacao == S.S_PENDENTE_AUTORIZACAO %}
-    <li class="pending"><b>Aguardando autorização {% if s.cod_tipo_beneficiario=='GRUPO' %}do proprietário do grupo{% else %}do gestor{% endif %}</b>
+    <li class="pending"><b>Aguardando autorização do gestor</b>
         {% if s.nome_autorizador_previsto %}· {{ s.nome_autorizador_previsto }}{% endif %}
         <br><small>etapa pendente</small></li>
     {% elif s.cod_status_solicitacao == S.S_AUTORIZADA %}
+    {% if s.cod_tipo_beneficiario=='GRUPO' %}
+    <li class="pending"><b>Aguardando aprovação do dono do grupo</b>
+        {% if s.dono_grupo %}· {{ s.dono_grupo.nome_completo }}{% endif %}
+        <br><small>etapa pendente</small></li>
+    {% else %}
     <li class="pending"><b>Aguardando aprovação do owner</b>
         {% if s.owners %}· {{ s.owners|map(attribute='nome_completo')|join(', ') }}{% endif %}
         <br><small>etapa pendente</small></li>
+    {% endif %}
     {% endif %}
   </ul>
 </div>
