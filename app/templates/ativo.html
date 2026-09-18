@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% block title %}{{ ativo.nome_ativo }} · Marketplace{% endblock %}
 {% block content %}
-<a class="muted" href="{{ url_for('catalog.catalogo') }}">&larr; Voltar ao catálogo</a>
+<div class="crumbs">
+  <a class="muted" href="{{ url_for('catalog.catalogo') }}">Catálogo</a>
+  {% if ativo.nome_grupo_ativo %}
+  <span class="muted">/</span>
+  <a href="{{ url_for('catalog.catalogo', grupo=ativo.nome_grupo_ativo) }}">&larr; Voltar ao grupo {{ ativo.nome_grupo_ativo }}</a>
+  {% endif %}
+</div>
 
 <div class="banner" style="margin-top:10px">
   <div class="tags" style="margin-bottom:8px">
@@ -9,7 +15,6 @@
     {% if ativo.nome_dominio %}<span class="pill dom">{{ ativo.nome_dominio }}</span>{% endif %}
     {% if ativo.nome_subdominio %}<span class="pill sub">{{ ativo.nome_subdominio }}</span>{% endif %}
     {% if ativo.nome_camada %}<span class="pill cam">{{ ativo.nome_camada }}</span>{% endif %}
-    {% if ativo.nome_ambiente %}<span class="pill amb">{{ ativo.nome_ambiente }}</span>{% endif %}
   </div>
   <h2>{{ ativo.titulo or ativo.nome_ativo }}</h2>
   <p>{{ ativo.desc_ativo }}</p>

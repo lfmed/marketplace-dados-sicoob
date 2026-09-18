@@ -36,10 +36,10 @@ def build_rows(icas):
             "id_subdominio_informacao": sid, "id_dominio_informacao": did,
             "nome_subdominio": nome, "tag_subdominio": f"sub.{s}", "sigla_subdominio": s[:3].upper(),
             "desc_subdominio": nome, **_scd2()})
-    for ini_id, sub, nome, desc, owner, camadas in data.INICIATIVAS:
+    for ini_id, sub, sigla, nome, desc, owner, camadas in data.INICIATIVAS:
         r["iniciativa_aisn"].append({
             "id_iniciativa_aisn": ini_id, "id_subdominio_informacao": sub,
-            "nome_iniciativa": nome, "desc_iniciativa": desc,
+            "sigla_iniciativa": sigla, "nome_iniciativa": nome, "desc_iniciativa": desc,
             "cod_status_iniciativa": "ATIVA", **_scd2()})
         r["iniciativa_proprietario"].append({
             "id_iniciativa_aisn": ini_id, "id_usuario_aisn": owner,
@@ -53,8 +53,8 @@ def build_rows(icas):
     # ---------- ICA + tabelas (o alvo UC vive só em tabela_aisn) ----------
     cat = config.UC_CATALOG
     ini2sub = {i: sub for i, sub, *_ in data.INICIATIVAS}
-    ini2nome = {i: nome for i, _s, nome, *_ in data.INICIATIVAS}
-    ini2owner = {i: owner for i, _s, _n, _d, owner, _c in data.INICIATIVAS}
+    ini2nome = {i: nome for i, _s, _sig, nome, *_ in data.INICIATIVAS}
+    ini2owner = {i: owner for i, _s, _sig, _n, _d, owner, _c in data.INICIATIVAS}
     sub2dom = {s: d for s, d, _ in data.SUBDOMINIOS}
     dom_nome = {d: n for d, n, _ in data.DOMINIOS}
     sub_nome = {s: n for s, _d, n in data.SUBDOMINIOS}
@@ -125,7 +125,7 @@ def build_rows(icas):
 
     # Proprietários de domínio/subdomínio (herdados p/ fidelidade ao modelo)
     sub2owner, dom2owner = {}, {}
-    for i, sub, _n, _d, owner, _c in data.INICIATIVAS:
+    for i, sub, _sig, _n, _d, owner, _c in data.INICIATIVAS:
         sub2owner.setdefault(sub, owner)
     for s, d, _n in data.SUBDOMINIOS:
         if s in sub2owner:

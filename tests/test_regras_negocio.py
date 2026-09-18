@@ -66,6 +66,9 @@ def test_rn005_catalogo_driver_ativo_com_breadcrumb(conectado):
     assert ica["nome_dominio"] == "Canais e Experiência"
     assert ica["tipo_label"] == C.TIPO_ATIVO_LABEL[C.AT_ICA]
     assert ica["nome_grupo_ativo"]  # rótulo de agrupamento de ativos (não é o grupo de acesso)
+    # Título da iniciativa = "{nome} - {sigla}" (sigla_iniciativa incluída no modelo)
+    assert ica["sigla_iniciativa"] == "IBNAV"
+    assert ica["titulo"] == f"{ica['nome_iniciativa']} - IBNAV"
 
 
 def test_catalogo_filtra_por_dominio_derivado(conectado):

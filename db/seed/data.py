@@ -67,21 +67,23 @@ SUBDOMINIOS = [
     ("sub_cartao",   "dom_pgto",    "Cartões"),
 ]
 
-# Iniciativas (id, subdominio, nome, desc, owner_id, [camadas])
+# Iniciativas (id, subdominio, sigla, nome, desc, owner_id, [camadas])
+# sigla_iniciativa: código curto (modelo do cliente — assumiu o valor antigo de nome_iniciativa);
+# nome_iniciativa: nome descritivo. Exibição do ativo de iniciativa = "{nome} - {sigla}".
 INICIATIVAS = [
-    ("ini_ib_nav",   "sub_ib",       "IB · Navegação e Sessões",   "Sessões, jornadas e eventos de navegação no IB web.", "u_ana",     ["cam_silver", "cam_gold"]),
-    ("ini_ib_trx",   "sub_ib",       "IB · Transações Web",        "Transações financeiras efetuadas no Internet Banking web.", "u_ana", ["cam_silver", "cam_gold"]),
-    ("ini_mob_eng",  "sub_mobile",   "Mobile · Engajamento",       "Dispositivos, sessões e adoção de funcionalidades no app mobile.", "u_ana", ["cam_gold"]),
-    ("ini_api_tel",  "sub_apis",     "APIs · Telemetria de Consumo","Volume, latência e status das chamadas às APIs por parceiro.", "u_ana", ["cam_bronze", "cam_silver"]),
-    ("ini_api_parc", "sub_apis",     "APIs · Cadastro de Parceiros","Parceiros integrados, escopos contratados e situação contratual.", "u_ana", ["cam_gold"]),
-    ("ini_cad_360",  "sub_cadastro", "Cadastro · Cooperado 360",   "Cadastro mestre do cooperado: dados pessoais e situação cadastral.", "u_carlos", ["cam_silver", "cam_gold"]),
-    ("ini_cad_doc",  "sub_cadastro", "Cadastro · Documentos",      "Documentos de identificação vinculados ao cooperado.", "u_carlos", ["cam_silver"]),
-    ("ini_perf_seg", "sub_perfil",   "Perfil · Segmentos e Score", "Segmentos comportamentais e score de relacionamento do cooperado.", "u_carlos", ["cam_gold"]),
-    ("ini_priv_lgpd","sub_priv",     "Privacidade · Consentimentos LGPD","Consentimentos, finalidades de uso e histórico de revogações (LGPD).", "u_carlos", ["cam_gold"]),
-    ("ini_cred_score","sub_score",   "Risco · Score de Crédito",   "Score de crédito e variáveis de risco por cooperado.", "u_daniela", ["cam_silver", "cam_gold"]),
-    ("ini_cred_prop","sub_proposta", "Crédito · Propostas e Contratos","Propostas, contratos e situação de crédito.", "u_daniela", ["cam_gold"]),
-    ("ini_pix_trx",  "sub_pix",      "Pix · Transações Instantâneas","Transações Pix, chaves e limites por cooperado.", "u_eduardo", ["cam_silver", "cam_gold"]),
-    ("ini_card_fat", "sub_cartao",   "Cartões · Faturas e Limites","Faturas, limites e uso de cartões.", "u_eduardo", ["cam_gold"]),
+    ("ini_ib_nav",   "sub_ib",       "IBNAV",    "IB · Navegação e Sessões",   "Sessões, jornadas e eventos de navegação no IB web.", "u_ana",     ["cam_silver", "cam_gold"]),
+    ("ini_ib_trx",   "sub_ib",       "IBTRX",    "IB · Transações Web",        "Transações financeiras efetuadas no Internet Banking web.", "u_ana", ["cam_silver", "cam_gold"]),
+    ("ini_mob_eng",  "sub_mobile",   "MOBENG",   "Mobile · Engajamento",       "Dispositivos, sessões e adoção de funcionalidades no app mobile.", "u_ana", ["cam_gold"]),
+    ("ini_api_tel",  "sub_apis",     "APITEL",   "APIs · Telemetria de Consumo","Volume, latência e status das chamadas às APIs por parceiro.", "u_ana", ["cam_bronze", "cam_silver"]),
+    ("ini_api_parc", "sub_apis",     "APIPARC",  "APIs · Cadastro de Parceiros","Parceiros integrados, escopos contratados e situação contratual.", "u_ana", ["cam_gold"]),
+    ("ini_cad_360",  "sub_cadastro", "CAD360",   "Cadastro · Cooperado 360",   "Cadastro mestre do cooperado: dados pessoais e situação cadastral.", "u_carlos", ["cam_silver", "cam_gold"]),
+    ("ini_cad_doc",  "sub_cadastro", "CADDOC",   "Cadastro · Documentos",      "Documentos de identificação vinculados ao cooperado.", "u_carlos", ["cam_silver"]),
+    ("ini_perf_seg", "sub_perfil",   "PERFSEG",  "Perfil · Segmentos e Score", "Segmentos comportamentais e score de relacionamento do cooperado.", "u_carlos", ["cam_gold"]),
+    ("ini_priv_lgpd","sub_priv",     "PRIVLGPD", "Privacidade · Consentimentos LGPD","Consentimentos, finalidades de uso e histórico de revogações (LGPD).", "u_carlos", ["cam_gold"]),
+    ("ini_cred_score","sub_score",   "CREDSCR",  "Risco · Score de Crédito",   "Score de crédito e variáveis de risco por cooperado.", "u_daniela", ["cam_silver", "cam_gold"]),
+    ("ini_cred_prop","sub_proposta", "CREDPROP", "Crédito · Propostas e Contratos","Propostas, contratos e situação de crédito.", "u_daniela", ["cam_gold"]),
+    ("ini_pix_trx",  "sub_pix",      "PIXTRX",   "Pix · Transações Instantâneas","Transações Pix, chaves e limites por cooperado.", "u_eduardo", ["cam_silver", "cam_gold"]),
+    ("ini_card_fat", "sub_cartao",   "CARDFAT",  "Cartões · Faturas e Limites","Faturas, limites e uso de cartões.", "u_eduardo", ["cam_gold"]),
 ]
 
 # Grupos exploratórios (id, nome_grupo_UC, tipo, membros[ids usuario])

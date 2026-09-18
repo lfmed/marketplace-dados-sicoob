@@ -25,7 +25,7 @@ def build_icas():
     icas = []
     amb = data.AMBIENTES[0][0]
     for ini in data.INICIATIVAS:
-        ini_id, _sub, _nome, _desc, _owner, camadas = ini
+        ini_id, _sub, _sig, _nome, _desc, _owner, camadas = ini
         for cam in camadas:
             ica_id = f"ica_{short(ini_id,'ini_')}_{short(cam,'cam_')}"
             schema_uc = f"{config.UC_SCHEMA_PREFIX}_{short(ini_id,'ini_')}_{short(cam,'cam_')}"

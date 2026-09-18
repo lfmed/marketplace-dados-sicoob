@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS {GOV}.subdominio_informacao (
 CREATE TABLE IF NOT EXISTS {GOV}.iniciativa_aisn (
     id_iniciativa_aisn         VARCHAR(255) PRIMARY KEY,
     id_subdominio_informacao   VARCHAR(255) NOT NULL REFERENCES {GOV}.subdominio_informacao(id_subdominio_informacao),
+    sigla_iniciativa           VARCHAR(255),            -- sigla (valor antigo de nome_iniciativa)
     nome_iniciativa            VARCHAR(255) NOT NULL,
     desc_iniciativa            VARCHAR(1000),
     cod_status_iniciativa      VARCHAR(50),
@@ -43,6 +44,9 @@ CREATE TABLE IF NOT EXISTS {GOV}.iniciativa_aisn (
     bol_atual                  BOOLEAN DEFAULT true,
     bol_excluido               BOOLEAN DEFAULT false
 );
+-- Migração idempotente (mirror dev): CREATE TABLE IF NOT EXISTS não altera tabela já
+-- existente. Adiciona sigla_iniciativa se a tabela foi criada antes da coluna existir.
+ALTER TABLE {GOV}.iniciativa_aisn ADD COLUMN IF NOT EXISTS sigla_iniciativa VARCHAR(255);
 
 CREATE TABLE IF NOT EXISTS {GOV}.camada_aisn (
     id_camada_aisn             VARCHAR(255) PRIMARY KEY,

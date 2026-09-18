@@ -12,10 +12,11 @@ TIPO_LABEL = C.TIPO_ATIVO_LABEL      # código -> rótulo
 
 
 def _titulo(a):
-    """Título de exibição (feedback do cliente): para Iniciativa, mostra só o nome da
-    iniciativa (camada/ambiente viram tags); demais tipos mantêm o nome do ativo."""
+    """Título de exibição (feedback do cliente): para Iniciativa, mostra o nome da iniciativa
+    seguido da sigla ("{nome} - {sigla}"); demais tipos mantêm o nome do ativo."""
     if str(a.get("cod_tipo_ativo") or "") == C.AT_ICA and a.get("nome_iniciativa"):
-        return a["nome_iniciativa"]
+        sigla = a.get("sigla_iniciativa")
+        return f"{a['nome_iniciativa']} - {sigla}" if sigla else a["nome_iniciativa"]
     return a.get("nome_ativo")
 
 

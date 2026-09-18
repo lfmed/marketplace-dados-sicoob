@@ -162,6 +162,7 @@ def ativo_cols(alias="a"):
       COALESCE(axi_dom.id_dominio_informacao, axt_dom.id_dominio_informacao, axs_dom.id_dominio_informacao, axd_dom.id_dominio_informacao) AS id_dominio_informacao,
       COALESCE(axi_sub.id_subdominio_informacao, axt_sub.id_subdominio_informacao, axs_sub.id_subdominio_informacao) AS id_subdominio_informacao,
       COALESCE(axi_ini.nome_iniciativa, axt_ini.nome_iniciativa) AS nome_iniciativa,
+      COALESCE(axi_ini.sigla_iniciativa, axt_ini.sigla_iniciativa) AS sigla_iniciativa,
       COALESCE(axi_cam.nome_camada, axt_cam.nome_camada, axs_cam.nome_camada, axd_cam.nome_camada) AS nome_camada,
       COALESCE(axi_amb.nome_ambiente, axt_amb.nome_ambiente, axs_amb.nome_ambiente, axd_amb.nome_ambiente) AS nome_ambiente,
       CASE {a}.cod_tipo_ativo
